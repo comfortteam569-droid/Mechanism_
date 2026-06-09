@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>말미잘 자포 발사 실제 PDB 단백질 3D 뷰어</title>
+    <title>말미잘 자포 발사 실제 분자 외형 3D 애니메이션 시뮬레이터</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://3dmol.org/build/3Dmol-min.js"></script>
     
     <style>
         :root {
-            --bg-dark: #070a13;
-            --panel-bg: rgba(15, 23, 42, 0.9);
+            --bg-dark: #04060a;
+            --panel-bg: rgba(9, 13, 24, 0.94);
             --primary: #3b82f6;
-            --primary-active: #2563eb;
             --accent: #fbbf24;
             --text-main: #f8fafc;
             --text-sub: #94a3b8;
@@ -27,108 +26,58 @@
             overflow: hidden;
         }
 
-        #dashboard {
-            display: flex;
-            width: 100vw; height: 100vh;
-        }
+        #dashboard { display: flex; width: 100vw; height: 100vh; }
 
-        /* 왼쪽 정보 및 제어반 */
+        /* 왼쪽 제어반 */
         #sidebar {
-            width: 400px; height: 100%;
+            width: 410px; height: 100%;
             background: var(--panel-bg);
-            backdrop-filter: blur(12px);
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 24px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            z-index: 10;
-            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 24px; box-sizing: border-box;
+            display: flex; flex-direction: column; z-index: 10;
+            box-shadow: 15px 0 35px rgba(0, 0, 0, 0.7);
         }
 
-        /* 오른쪽 전체 화면 리얼 3D 분자 뷰어 */
-        #main-viewer-container {
-            flex: 1; height: 100%;
-            position: relative;
-            background: #020408;
-        }
-
-        #molecule-viewer {
-            width: 100%; height: 100%;
-        }
+        /* 오른쪽 메인 3D 실제 분자 외형 뷰어 */
+        #main-viewer-container { flex: 1; height: 100%; position: relative; background: #000103; }
+        #molecule-viewer { width: 100%; height: 100%; }
 
         h1 {
-            font-size: 18px; margin: 0 0 6px 0; font-weight: 800;
-            letter-spacing: -0.5px;
-            background: linear-gradient(to right, #60a5fa, #34d399);
+            font-size: 18px; margin: 0 0 4px 0; font-weight: 800;
+            background: linear-gradient(to right, #38bdf8, #a855f7);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
+        .subtitle { font-size: 11px; color: var(--text-sub); margin-bottom: 20px; }
 
-        .subtitle {
-            font-size: 11px; color: var(--text-sub); margin-bottom: 24px;
-        }
-
-        .step-list {
-            display: flex; flex-direction: column; gap: 10px;
-        }
-
+        .step-list { display: flex; flex-direction: column; gap: 8px; }
         .step-item {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 8px; padding: 12px; cursor: pointer;
-            transition: all 0.2s ease;
+            background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s ease;
         }
-
-        .step-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.15);
-        }
-
-        .step-item.active {
-            border-color: var(--primary);
-            background: rgba(59, 130, 246, 0.12);
-        }
-
-        .step-header {
-            display: flex; justify-content: space-between; align-items: center;
-            font-size: 12.5px; font-weight: 700; margin-bottom: 4px;
-        }
-
+        .step-item.active { border-color: var(--primary); background: rgba(59, 130, 246, 0.15); }
+        .step-header { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; font-weight: 700; }
         .pdb-badge {
             font-family: monospace; font-size: 11px; color: var(--accent);
-            background: rgba(251, 191, 36, 0.12); padding: 2px 6px; border-radius: 4px;
-            border: 1px solid rgba(251, 191, 36, 0.2);
+            background: rgba(251, 191, 36, 0.1); padding: 2px 6px; border-radius: 4px;
         }
 
-        /* 최소한의 직관적인 요약 설명창 */
-        #description-panel {
-            margin-top: auto; background: rgba(0, 0, 0, 0.4);
-            border-radius: 8px; padding: 14px; border-left: 4px solid var(--primary);
-        }
-
-        #desc-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #60a5fa; }
+        /* 설명창 */
+        #description-panel { margin-top: auto; background: rgba(0, 0, 0, 0.6); border-radius: 8px; padding: 14px; border-left: 4px solid var(--primary); }
+        #desc-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #38bdf8; }
         #desc-text { font-size: 12px; line-height: 1.5; color: #e2e8f0; text-align: justify; }
 
-        /* 화면 가이드 힌트 */
         #ui-hint {
-            position: absolute; top: 20px; left: 20px;
-            background: rgba(0,0,0,0.75); padding: 8px 16px; border-radius: 30px;
-            font-size: 11.5px; color: #60a5fa; border: 1px solid rgba(96,165,250,0.25);
-            pointer-events: none; z-index: 5; backdrop-filter: blur(4px);
+            position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.85);
+            padding: 8px 16px; border-radius: 30px; font-size: 11px; color: #a855f7;
+            border: 1px solid rgba(168,85,247,0.2); pointer-events: none; z-index: 5;
         }
-
-        /* 로딩 애니메이션 오버레이 */
         #loading-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(2, 4, 8, 0.85); display: flex; flex-direction: column;
-            align-items: center; justify-content: center; z-index: 15;
-            font-size: 13px; color: #60a5fa; font-weight: 600;
+            background: rgba(0, 1, 3, 0.95); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 15; font-size: 12px; color: #38bdf8;
         }
-        .spinner {
-            width: 30px; height: 30px; border: 3px solid rgba(59, 130, 246, 0.2);
-            border-top-color: var(--primary); border-radius: 50%;
-            animation: spin 0.8s linear infinite; margin-bottom: 12px;
-        }
+        .spinner { width: 24px; height: 24px; border: 2px solid rgba(56,189,248,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -136,107 +85,184 @@
 
     <div id="dashboard">
         <div id="sidebar">
-            <h1>자포 발사 분자 구조 분석</h1>
-            <div class="subtitle">실제 RCSB PDB 생체 고분자 데이터 동적 뷰어</div>
+            <h1>실제 분자 외형 애니메이션</h1>
+            <div class="subtitle">RCSB PDB 원자 충진 모델(Space-filling) 리얼 타임 시뮬레이션</div>
 
             <div class="step-list">
-                <div class="step-item active" onclick="switchPDB('7KCO', 1)">
-                    <div class="step-header"><span>ㄱ. 화학적 자극 수용체</span><span class="pdb-badge">7KCO</span></div>
+                <div class="step-item active" onclick="loadStage('7KCO', 1)">
+                    <div class="step-header"><span>ㄱ. 화학 자극 수용체 결합</span><span class="pdb-badge">7KCO</span></div>
                 </div>
-                <div class="step-item" onclick="switchPDB('6JPA', 2)">
-                    <div class="step-header"><span>ㄴ. 전압개폐성 칼슘 채널</span><span class="pdb-badge">6JPA</span></div>
+                <div class="step-item" onclick="loadStage('6JPA', 2)">
+                    <div class="step-header"><span>ㄴ. 칼슘 채널 개방 및 이온 유입</span><span class="pdb-badge">6JPA</span></div>
                 </div>
-                <div class="step-item" onclick="switchPDB('1A9M', 3)">
-                    <div class="step-header"><span>ㄷ. 삼투압 형성 고분자 기질</span><span class="pdb-badge">1A9M</span></div>
+                <div class="step-item" onclick="loadStage('1A9M', 3)">
+                    <div class="step-header"><span>ㄷ. 기질 내부 삼투압 팽윤 (Swelling)</span><span class="pdb-badge">1A9M</span></div>
                 </div>
-                <div class="step-item" onclick="switchPDB('1BKV', 4)">
-                    <div class="step-header"><span>ㄹ. 캡슐벽 미니콜라겐 그물망</span><span class="pdb-badge">1BKV</span></div>
+                <div class="step-item" onclick="loadStage('1BKV', 4)">
+                    <div class="step-header"><span>ㄹ. 콜라겐 그물망 탄성 압축</span><span class="pdb-badge">1BKV</span></div>
                 </div>
-                <div class="step-item" onclick="switchPDB('3HQV', 5)">
-                    <div class="step-header"><span>ㅁ. 사출 자포관 벽 단백질</span><span class="pdb-badge">3HQV</span></div>
+                <div class="step-item" onclick="loadStage('3HQV', 5)">
+                    <div class="step-header"><span>ㅁ. 자포관 고속 사출 및 전개</span><span class="pdb-badge">3HQV</span></div>
                 </div>
             </div>
 
             <div id="description-panel">
-                <div id="desc-title">nAChR (Nicotinic Acetylcholine Receptor)</div>
-                <div id="desc-text">자포 사출의 첫 신호를 여는 화학적 수용체입니다. 아세틸콜린과 결합하여 이온 채널 통로를 미세하게 개방하고, 세포막의 전기화학적 과분극 환경을 유도하여 다음 발사 단계를 프라이밍합니다.</div>
+                <div id="desc-title">로딩 중...</div>
+                <div id="desc-text">로딩 중...</div>
             </div>
         </div>
 
         <div id="main-viewer-container">
-            <div id="ui-hint">🖱️ 휠을 굴려 확대/축소(Zoom)하고, 드래그하여 실제 원자 구조를 입체 회전하세요.</div>
-            <div id="loading-overlay">
-                <div class="spinner"></div>
-                <div id="loading-text">RCSB 구조 데이터베이스 동시 접속 중...</div>
-            </div>
+            <div id="ui-hint">🔮 실제 원자 질량이 뭉쳐진 고분자 형태입니다. 휠을 굴려 포어(Pore) 내부까지 줌인해 보세요.</div>
+            <div id="loading-overlay"><div class="spinner"></div><div id="loading-text">미국 RCSB 데이터베이스에서 실제 원자 질량 맵 다운로드 중...</div></div>
             <div id="molecule-viewer"></div>
         </div>
     </div>
 
     <script>
         let viewer = null;
+        let currentStage = 0;
+        let animationId = null;
+        let particles = [];
+        let stageTime = 0;
 
-        // 각 단계별 요약 설명문 데이터 세트
         const descriptions = {
-            1: {
-                title: "nAChR (화학 자극 수용체) | PDB: 7KCO",
-                text: "자포 사출의 신호를 여는 화학적 수용체입니다. 아세틸콜린과 결합하여 포어(Pore) 중심을 열고, 세포막의 이온 환경을 변화시켜 전체 발사 메커니즘을 시동하는 스타터 역할을 수행합니다."
-            },
-            2: {
-                title: "nCaV (전압개폐성 칼슘 채널) | PDB: 6JPA",
-                text: "물리적 자극(탈분극)을 감지하면 중앙의 기둥 도메인들이 구조적 전이를 일으키며 완전히 개방됩니다. 세포 외부에 존재하던 고농도의 Ca²⁺ 이온을 자포 내부 기질로 폭포수처럼 유입시킵니다."
-            },
-            3: {
-                title: "Poly-γ-glutamate (음전하 고분자 기질) | PDB: 1A9M",
-                text: "자포 내부에 꽉 들어찬 음전하성 고분자 사슬입니다. 유입된 칼슘 이온들과 강력하게 정전기적으로 흡착하여 내부 용질 농도를 급상승시킵니다. 이로 인해 무수한 수분이 대량 흡입되는 삼투 팽윤(Swelling)의 원동력이 됩니다."
-            },
-            4: {
-                title: "Minicollagen (캡슐벽 단백질 그물망) | PDB: 1BKV",
-                text: "수분 흡입으로 발생하는 무려 150 bar의 엄청난 내부 유체 압력을 견디는 단단한 보호벽입니다. 콜라겐 특유의 촘촘한 삼중나선 격자 구조가 한계까지 휘어지며 강력한 탄성 위치 에너지를 압축하여 저장합니다."
-            },
-            5: {
-                title: "Tubule Wall Protein (자포관 단백질 구조) | PDB: 3HQV",
-                text: "압축된 에너지가 개방되면서 뒤집히듯 튕겨 나가는 중공형 자포관의 핵심 뼈대 단백질입니다. 강한 마찰과 물리 인장력을 견디며 타깃 표면을 정확하게 관통할 수 있도록 단단하면서도 유연한 원통형 나선 사슬을 형성합니다."
-            }
+            1: { title: "nAChR 수용체 실제 분자 충진 모델 [7KCO]", text: "추상적인 선을 지우고 실제 원자의 부피(Van der Waals 반경) 그대로를 구체로 매핑한 수용체 덩어리입니다. 적색 아세틸콜린 분자들이 실제 분자의 우둘투둘한 표면 틈새(포켓)로 유입되어 결합하는 물리적 양상을 보여줍니다." },
+            2: { title: "nCaV 칼슘 채널 원자 터널 애니메이션 [6JPA]", text: "거대한 원자 질량 덩어리 정중앙에 뚫려 있는 실제 물리적 통로(Pore)를 관찰하세요. 청색 칼슘 이온들이 이 원자 벽면 마찰을 통과하여 세포 안으로 쏟아져 들어옵니다." },
+            3: { title: "Poly-γ-Glu 음전하 분자 표면 팽창 [1A9M]", text: "음전하를 띤 실제 고분자 사슬 덩어리입니다. 사방에서 녹색 물 분자들이 이 원자 표면 사이사이의 미세한 빈틈으로 무섭게 흡착되며 삼투압성 압력을 형성합니다." },
+            4: { title: "Minicollagen 삼중나선 분자 응축 [1BKV]", text: "실제 콜라겐을 이루는 아미노산 원자들이 초고밀도로 꼬여 있는 모습입니다. 엄청난 내부 유체 압력을 버텨내기 위해 분자 전체가 웅크리듯 고주파로 격렬하게 진동하며 에너지를 축축합니다." },
+            5: { title: "Tubule Wall 자포관 분자 사출 [3HQV]", text: "원통형으로 엮인 실제 자포관 뼈대 분자 덩어리입니다. 압축 해제와 동시에 분자 덩어리 자체가 나선 회전을 일으키며 타깃을 향해 초고속으로 추진 전개됩니다." }
         };
 
         $(document).ready(function() {
-            // 뷰어 인스턴스 생성 및 기본 마우스 인터랙션(휠 줌 포함) 활성화
-            viewer = $3Dmol.createViewer($('#molecule-viewer'), {
-                defaultcolors: $3Dmol.rasmolElementColors
-            });
-            
-            // 첫 번째 PDB 구조 초기 로드
-            switchPDB('7KCO', 1);
+            viewer = $3Dmol.createViewer($('#molecule-viewer'), { defaultcolors: $3Dmol.rasmolElementColors });
+            loadStage('7KCO', 1);
         });
 
-        function switchPDB(pdbId, stageNum) {
-            if (!viewer) return;
+        function loadStage(pdbId, stageNum) {
+            currentStage = stageNum;
+            stageTime = 0;
+            if (animationId) cancelAnimationFrame(animationId);
 
-            // UI 상태 업데이트
             $('#loading-overlay').fadeIn(100);
             $('.step-item').removeClass('active');
             $(`.step-list .step-item:nth-child(${stageNum})`).addClass('active');
 
-            // 텍스트 설명 실시간 변경
             document.getElementById('desc-title').innerText = descriptions[stageNum].title;
             document.getElementById('desc-text').innerText = descriptions[stageNum].text;
 
-            // 기존 구조 초기화 후 미국 RCSB 단백질 데이터베이스 서버에서 실시간 다운로드
             viewer.clear();
+            
+            // 실제 RCSB PDB 원자 좌표 다운로드
             $3Dmol.download("pdb:" + pdbId, viewer, {}, function(model) {
-                // 생물학 보고서에 가장 적합한 고해상도 리본(Cartoon) 모델 스타일 지정
-                viewer.setStyle({}, {
-                    cartoon: {
-                        color: 'spectrum', // N단말부터 C단말까지 무지개색 매핑
-                        thickness: 0.6
-                    }
+                
+                // 🌟 핵심 변경: cartoon(리본) 대신 sphere(원자 실제 부피 충진 모델) 적용!
+                viewer.setStyle({}, { 
+                    sphere: { 
+                        colorscheme: 'element', // 탄소=회색, 산소=적색, 질소=청색 등 화학 표준 원자 색상 매핑
+                        scale: 1.0             // 실제 Van der Waals 원자 반경 100% 반영
+                    } 
                 });
                 
-                viewer.zoomTo(); // 구조가 화면 중앙에 꽉 차도록 카메라 자동 정렬
-                viewer.render(); // 화면에 최종 가동
-                $('#loading-overlay').fadeOut(250);
+                viewer.zoomTo();
+                initParticles(stageNum);
+                
+                $('#loading-overlay').fadeOut(200);
+                runAnimation();
             });
+        }
+
+        function initParticles(stageNum) {
+            particles = [];
+            if (stageNum === 1) {
+                for(let i=0; i<20; i++) {
+                    particles.push({ x: (Math.random()-0.5)*90, y: 70 + Math.random()*30, z: (Math.random()-0.5)*90, targetY: (Math.random()-0.5)*15, color: '#ef4444', size: 2.2, speed: 0.9 + Math.random() });
+                }
+            } else if (stageNum === 2) {
+                // 채널 덩어리 중앙 구멍 크기에 맞게 이온 배치 미세 조정
+                for(let i=0; i<40; i++) {
+                    particles.push({ x: (Math.random()-0.5)*8, y: 60 + Math.random()*40, z: (Math.random()-0.5)*8, color: '#38bdf8', size: 1.5, speed: 1.8 + Math.random() });
+                }
+            } else if (stageNum === 3) {
+                for(let i=0; i<60; i++) {
+                    let angle = Math.random() * Math.PI * 2;
+                    let r = 60 + Math.random() * 20;
+                    particles.push({ x: Math.cos(angle)*r, y: (Math.random()-0.5)*50, z: Math.sin(angle)*r, color: '#34d399', size: 1.3, speed: 0.8 });
+                }
+            } else if (stageNum === 4) {
+                for(let i=0; i<25; i++) {
+                    particles.push({ x: (Math.random()-0.5)*20, y: (Math.random()-0.5)*50, z: (Math.random()-0.5)*20, color: '#fbbf24', size: 1.0, pulse: Math.random()*5 });
+                }
+            } else if (stageNum === 5) {
+                for(let i=0; i<35; i++) {
+                    particles.push({ x: (Math.random()-0.5)*15, y: -50 - Math.random()*30, z: (Math.random()-0.5)*15, color: '#ec4899', size: 1.6 });
+                }
+            }
+        }
+
+        function runAnimation() {
+            stageTime += 0.05;
+            viewer.removeAllShapes();
+
+            if (currentStage === 1) {
+                particles.forEach(p => {
+                    if (p.y > p.targetY) { p.y -= p.speed; } 
+                    else { p.y = 80; p.x = (Math.random()-0.5)*90; p.z = (Math.random()-0.5)*90; }
+                    viewer.addSphere({ center: {x: p.x, y: p.y, z: p.z}, radius: p.size, color: p.color });
+                });
+                viewer.rotate(0.12, 'y');
+
+            } else if (currentStage === 2) {
+                particles.forEach(p => {
+                    p.y -= p.speed;
+                    p.x += Math.sin(p.y * 0.15) * 0.2;
+                    p.z += Math.cos(p.y * 0.15) * 0.2;
+                    if (p.y < -60) { p.y = 70; p.x = (Math.random()-0.5)*8; p.z = (Math.random()-0.5)*8; }
+                    viewer.addSphere({ center: {x: p.x, y: p.y, z: p.z}, radius: p.size, color: p.color });
+                });
+                viewer.rotate(0.15, 'y');
+
+            } else if (currentStage === 3) {
+                particles.forEach(p => {
+                    let length = Math.sqrt(p.x*p.x + p.z*p.z);
+                    if (length > 4) {
+                        p.x -= (p.x / length) * p.speed;
+                        p.z -= (p.z / length) * p.speed;
+                    } else {
+                        let angle = Math.random() * Math.PI * 2;
+                        let r = 70; p.x = Math.cos(angle)*r; p.z = Math.sin(angle)*r;
+                    }
+                    viewer.addSphere({ center: {x: p.x, y: p.y, z: p.z}, radius: p.size, color: p.color });
+                });
+                viewer.rotate(0.08, 'y');
+
+            } else if (currentStage === 4) {
+                let shake = Math.sin(stageTime * 6) * 0.7;
+                viewer.translate(shake, 0);
+                
+                particles.forEach(p => {
+                    p.pulse += 0.25;
+                    let currentRadius = p.size + Math.sin(p.pulse) * 0.4;
+                    viewer.addSphere({ center: {x: p.x, y: p.y, z: p.z}, radius: currentRadius, color: p.color });
+                });
+
+            } else if (currentStage === 5) {
+                viewer.translate(0, 1.4); 
+                if(stageTime > 12) {
+                    viewer.zoomTo();
+                    stageTime = 0;
+                }
+                
+                particles.forEach(p => {
+                    p.y += 2.2;
+                    if (p.y > 60) p.y = -60;
+                    viewer.addSphere({ center: {x: p.x, y: p.y, z: p.z}, radius: p.size, color: p.color });
+                });
+                viewer.rotate(1.2, 'y');
+            }
+
+            viewer.render();
+            animationId = requestAnimationFrame(runAnimation);
         }
     </script>
 </body>
