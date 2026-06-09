@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>말미잘 자포 발사 분자 메커니즘 시뮬레이터</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/3dmol/2.0.4/3Dmol-min.js"></script>
     <style>
         :root {
             --bg-color: #0b0f19;
-            --panel-bg: rgba(17, 24, 39, 0.85);
+            --panel-bg: rgba(17, 24, 39, 0.9);
             --primary: #3b82f6;
             --primary-hover: #2563eb;
             --text-main: #f3f4f6;
@@ -43,17 +42,21 @@
             box-shadow: 10px 0 30px rgba(0,0,0,0.5);
         }
 
-        /* 오른쪽 3D 시뮬레이션 고해상도 캔버스 영역 */
+        /* 오른쪽 시뮬레이션 엔진 캔버스 영역 */
         #viewer-container {
             flex: 1; height: 100%;
             position: relative;
             background: radial-gradient(circle at center, #111827 0%, #070a10 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        #molecule-viewer {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
+        /* 에러 발생 가능성을 제로로 만든 브라우저 자체 그래픽 캔버스 */
+        #simulation-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
         }
 
         h1 {
@@ -67,7 +70,7 @@
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.06);
             border-radius: 12px; padding: 12px; margin-bottom: 14px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s ease;
         }
 
         .step-card.active {
@@ -88,21 +91,17 @@
             background-color: var(--primary-hover);
             transform: translateY(-1px);
         }
-        
-        .btn:active:not(:disabled) {
-            transform: translateY(1px);
-        }
 
         .btn:disabled {
             background-color: #1f2937; color: #4b5563; cursor: not-allowed;
             border: 1px solid rgba(255, 255, 255, 0.02);
         }
 
-        /* 하단 메커니즘 유기적 실시간 해설창 */
+        /* 하단 메커니즘 실시간 해설창 */
         #status-box {
             margin-top: auto; background: rgba(0, 0, 0, 0.5);
             border-radius: 10px; padding: 18px; font-size: 13.5px; line-height: 1.6;
-            border-left: 4px solid var(--primary); min-height: 130px;
+            border-left: 4px solid var(--primary); min-height: 140px;
             box-sizing: border-box;
         }
 
@@ -117,346 +116,335 @@
             <h1>자포 발사 분자 메커니즘</h1>
 
             <div class="step-card active" id="card-1">
-                <button class="btn" id="btn-1" onclick="runStage1()">ㄱ. 화학적 자극 (과분극)</button>
+                <button class="btn" id="btn-1" onclick="startStage(1)">ㄱ. 화학적 자극 (과분극)</button>
             </div>
 
             <div class="step-card" id="card-2">
-                <button class="btn" id="btn-2" onclick="runStage2()" disabled>ㄴ. 기계적 자극 (nCaV 활성)</button>
+                <button class="btn" id="btn-2" onclick="startStage(2)" disabled>ㄴ. 기계적 자극 (nCaV 활성)</button>
             </div>
 
             <div class="step-card" id="card-3">
-                <button class="btn" id="btn-3" onclick="runStage3()" disabled>ㄷ. 삼투압 형성 (팽윤)</button>
+                <button class="btn" id="btn-3" onclick="startStage(3)" disabled>ㄷ. 삼투압 형성 (팽윤)</button>
             </div>
 
             <div class="step-card" id="card-4">
-                <button class="btn" id="btn-4" onclick="runStage4()" disabled>ㄹ. 캡슐벽 탄성 저장</button>
+                <button class="btn" id="btn-4" onclick="startStage(4)" disabled>ㄹ. 캡슐벽 탄성 저장</button>
             </div>
 
             <div class="step-card" id="card-5">
-                <button class="btn" id="btn-5" onclick="runStage5()" disabled>ㅁ. 자포관 전개 (Eversion)</button>
+                <button class="btn" id="btn-5" onclick="startStage(5)" disabled>ㅁ. 자포관 전개 (Eversion)</button>
             </div>
 
             <div id="status-box">
-                <div id="status-title">시스템 대기 중</div>
-                <div id="status-desc">첫 번째 버튼을 누르면 자포세포막의 화학적 감지 메커니즘 시뮬레이션이 노트북 해상도에 맞춰 부드럽게 시작됩니다.</div>
+                <div id="status-title">시스템 준비 완료</div>
+                <div id="status-desc">첫 번째 버튼을 누르면 자포세포막의 화학적 감지 메커니즘 분자 시뮬레이션이 브라우저 그래픽 가속을 통해 즉시 가동됩니다.</div>
             </div>
         </div>
 
         <div id="viewer-container">
-            <div id="molecule-viewer"></div>
+            <canvas id="simulation-canvas"></canvas>
         </div>
     </div>
 
     <script>
-        let viewer = null;
-        let staticShapes = [];   
-        let animatedShapes = []; 
-        let animationInterval = null;
+        const canvas = document.getElementById('simulation-canvas');
+        const ctx = canvas.getContext('2d');
 
-        // PC 브라우저 윈도우 로딩 완료 후 3D 그래픽 컨텍스트 바인딩
+        let currentStage = 0;
+        let animationFrameId = null;
+        let time = 0;
+
+        // 애니메이션 객체 관리용 배열
+        let ions = [];
+        let capsuleRadius = 45;
+        let capsuleColor = 'rgba(16, 185, 129, 0.2)';
+        let capsuleStroke = 'rgba(16, 185, 129, 0.6)';
+        let jitter = 0;
+        let shaftY = 0;
+        let tubuleLength = 0;
+        let barbs = [];
+
+        // 해상도 동적 설정
+        function resize() {
+            canvas.width = canvas.clientWidth * window.devicePixelRatio;
+            canvas.height = canvas.clientHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawScene();
+        }
+        window.addEventListener('resize', resize);
+
+        // 초기 화면 그리기 설정
         window.onload = function() {
-            try {
-                let element = document.getElementById("molecule-viewer");
-                viewer = $3Dmol.createViewer(element, { backgroundColor: "#0b0f19" });
-                buildInitialScene();
-            } catch(e) {
-                console.error("3D 뷰어 초기화 실패:", e);
-            }
+            resize();
+            drawScene();
         };
 
-        // 분자 구조 및 소기관 3D 지오메트리 고해상도 생성 및 좌표 맵 구축
-        function buildInitialScene() {
-            if (!viewer) return;
-
-            // 1. nAChR 수용체 빌드 (좌측 배치, x: -40)
-            for(let i=0; i<5; i++) {
-                let angle = (i * 2 * Math.PI) / 5;
-                let cx = -40 + Math.cos(angle) * 8;
-                let cz = Math.sin(angle) * 8;
-                let sub = viewer.addCylinder({ start: {x: cx, y: -25, z: cz}, end: {x: cx, y: 25, z: cz}, radius: 3, color: '#3b82f6', fromCap: true, toCap: true });
-                staticShapes.push(sub);
-            }
-
-            // 2. nCaV 칼슘 채널 빌드 (우측 배치, 초기 불활성 상태 회색 표현, x: 40)
-            let ncav1 = viewer.addCylinder({ start: {x: 36, y: -25, z: 0}, end: {x: 36, y: 25, z: 0}, radius: 4, color: '#4b5563', fromCap: true, toCap: true });
-            let ncav2 = viewer.addCylinder({ start: {x: 44, y: -25, z: 0}, end: {x: 44, y: 25, z: 0}, radius: 4, color: '#4b5563', fromCap: true, toCap: true });
-            staticShapes.push(ncav1, ncav2);
-
-            // 3. 하단 내부 자포 캡슐 구형 구조 배치 (y: -130)
-            let capsuleOutline = viewer.addSphere({ center: { x: 0, y: -135, z: -40 }, radius: 25, color: '#10b981', opacity: 0.15 });
-            staticShapes.push(capsuleOutline);
-
-            // 초기 카메라 시선을 nAChR 수용체 중심에 타겟 줌인
-            viewer.zoomTo({center: {x: -40, y: 0, z: 0}, radius: 28});
-            viewer.render();
-        }
-
-        function clearCurrentAnimation() {
-            if(animationInterval) clearInterval(animationInterval);
-            if(viewer) {
-                animatedShapes.forEach(shape => viewer.removeShape(shape));
-            }
-            animatedShapes = [];
-        }
-
-        // ==========================================
-        // [ㄱ단계] 화학적 자극에 의한 자포세포 반응성 조절
-        // ==========================================
-        function runStage1() {
-            if (!viewer) return;
-            clearCurrentAnimation();
-            updateStatus("ㄱ. 화학적 자극 및 과분극", "ACh 분자가 nAChR에 결합하여 이온 이동 통로를 개방합니다. 이 신호가 Ca²⁺ 의존성 K⁺ 채널을 작동시켜 세포 내부에 차 있던 K⁺ 이온들을 세포 밖으로 대량 탈출시키며 과분극(Hyperpolarization)을 유도합니다. 이 환경 변화는 비활성 상태였던 nCaV를 반응 가능 상태로 프라이밍(준비)합니다.");
+        function drawScene() {
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
             
-            // 카메라 스무스 이동
-            viewer.animateTo({ center: { x: -40, y: 0, z: 0 }, zoom: 1.5 }, 1000);
+            ctx.clearRect(0, 0, w, h);
+            
+            // 배경 그라데이션 적용
+            let grad = ctx.createRadialGradient(w/2, h/2, 10, w/2, h/2, Math.max(w, h));
+            grad.addColorStop(0, '#111827');
+            grad.addColorStop(1, '#070a10');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
 
-            // ACh 분자 생성 및 하강 유도
-            let ach = viewer.addSphere({ center: { x: -40, y: 55, z: 0 }, radius: 2.5, color: '#f59e0b' });
-            animatedShapes.push(ach);
+            // 5단계 사출 상태가 아닐 때만 이온 채널 및 기본 세포 구조 렌더링
+            if (currentStage < 5) {
+                // 세포막 뼈대 드로잉
+                ctx.beginPath();
+                ctx.moveTo(0, h * 0.35);
+                ctx.lineTo(w, h * 0.35);
+                ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+                ctx.lineWidth = 12;
+                ctx.stroke();
 
-            let progress = 0;
-            animationInterval = setInterval(() => {
-                progress += 0.02;
-                if (progress <= 1) {
-                    ach.updateStyle({ center: { x: -40, y: 55 - (35 * progress), z: 0 } });
-                    viewer.render();
-                } else if (progress > 1 && progress <= 1.6) {
-                    // K+ 이온들 생성 및 상방 분출선 구현
-                    if(animatedShapes.length === 1) {
-                        for(let i=0; i<18; i++) {
-                            let kIon = viewer.addSphere({ 
-                                center: { x: -52 + (Math.random()*24), y: -18, z: -10 + (Math.random()*20) }, 
-                                radius: 1.2, color: '#a7f3d0' 
-                            });
-                            animatedShapes.push(kIon);
+                // [좌측] nAChR 수용체 채널 단백질 렌더링 (파란색 계열)
+                ctx.fillStyle = '#3b82f6';
+                ctx.fillRect(w * 0.25 - 25, h * 0.35 - 35, 18, 70);
+                ctx.fillRect(w * 0.25 + 7, h * 0.35 - 35, 18, 70);
+                ctx.fillStyle = '#60a5fa';
+                ctx.font = 'bold 11px sans-serif';
+                ctx.fillText("nAChR", w * 0.25 - 18, h * 0.35 - 45);
+
+                // [우측] nCaV 전압개폐성 칼슘 채널 단백질 렌더링
+                if (currentStage >= 2) {
+                    ctx.fillStyle = '#38bdf8'; // 활성화 상태 (하늘색)
+                    ctx.fillRect(w * 0.75 - 25, h * 0.35 - 35, 20, 70);
+                    ctx.fillRect(w * 0.75 + 5, h * 0.35 - 35, 20, 70);
+                } else if (currentStage === 1) {
+                    ctx.fillStyle = '#34d399'; // 과분극 프라이밍 상태 (녹색)
+                    ctx.fillRect(w * 0.75 - 22, h * 0.35 - 35, 16, 70);
+                    ctx.fillRect(w * 0.75 + 6, h * 0.35 - 35, 16, 70);
+                } else {
+                    ctx.fillStyle = '#4b5563'; // 기본 평시 불활성 상태 (회색)
+                    ctx.fillRect(w * 0.75 - 20, h * 0.35 - 35, 14, 70);
+                    ctx.fillRect(w * 0.75 + 6, h * 0.35 - 35, 14, 70);
+                }
+                ctx.fillStyle = currentStage >= 1 ? '#38bdf8' : '#9ca3af';
+                ctx.fillText("nCaV", w * 0.75 - 13, h * 0.35 - 45);
+
+                // [하단 중앙] 자포 캡슐 구형 구조 구조화
+                ctx.save();
+                ctx.translate(w / 2 + (Math.random() * jitter - jitter/2), h * 0.75);
+                ctx.beginPath();
+                ctx.arc(0, 0, capsuleRadius, 0, Math.PI * 2);
+                ctx.fillStyle = capsuleColor;
+                ctx.fill();
+                ctx.strokeStyle = capsuleStroke;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                // 캡슐 내부 고분자 기질 입자 핵심 표현
+                if (currentStage >= 3) {
+                    ctx.fillStyle = '#f472b6';
+                    for (let i = 0; i < 8; i++) {
+                        ctx.beginPath();
+                        ctx.arc(-25 + i * 7, Math.sin(time * 0.1 + i) * 6, 4 + (capsuleRadius*0.04), 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                }
+                ctx.restore();
+            }
+
+            // 실시간 객체 애니메이션 루프 드로잉
+            ions.forEach(ion => {
+                ctx.beginPath();
+                ctx.arc(ion.x, ion.y, ion.r, 0, Math.PI * 2);
+                ctx.fillStyle = ion.color;
+                ctx.fill();
+                if (ion.glow) {
+                    ctx.shadowColor = ion.color;
+                    ctx.shadowBlur = 10;
+                }
+                ctx.shadowBlur = 0; // 리셋
+            });
+
+            // [5단계 피날레 전개 연출 전용 드로잉 단독 세션]
+            if (currentStage === 5) {
+                const cx = w / 2;
+                const baseY = h * 0.85;
+
+                // 1단계: Shaft 방출 및 이중 벽 형성
+                ctx.lineWidth = 24;
+                ctx.strokeStyle = 'rgba(96, 165, 250, 0.3)';
+                ctx.beginPath();
+                ctx.moveTo(cx, baseY);
+                ctx.lineTo(cx, baseY - shaftY);
+                ctx.stroke();
+
+                ctx.lineWidth = 14;
+                ctx.strokeStyle = '#34d399';
+                ctx.beginPath();
+                ctx.moveTo(cx, baseY);
+                ctx.lineTo(cx, baseY - shaftY * 0.9);
+                ctx.stroke();
+
+                // 2단계 및 3단계: 속이 빈 내부 통로(Lumen)를 관통하여 뒤집혀 사출되는 Tubule 가닥 표출
+                if (tubuleLength > 0) {
+                    ctx.lineWidth = 6;
+                    ctx.strokeStyle = '#f472b6';
+                    ctx.beginPath();
+                    ctx.moveTo(cx, baseY - shaftY * 0.9);
+                    ctx.lineTo(cx, baseY - shaftY * 0.9 - tubuleLength);
+                    ctx.stroke();
+
+                    // 나선형으로 개방 정렬되는 자포 특이적 작살 가시(Barbs) 역학 드로잉
+                    barbs.forEach(b => {
+                        ctx.lineWidth = 2.5;
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.beginPath();
+                        ctx.moveTo(cx, b.y);
+                        ctx.lineTo(cx + b.vx, b.y - 4);
+                        ctx.stroke();
+                    });
+                }
+            }
+        }
+
+        function updateAnimation() {
+            time++;
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+
+            // [1단계 연출 연동 연산]
+            if (currentStage === 1) {
+                ions.forEach((ion, index) => {
+                    if (ion.type === 'ach') {
+                        if (ion.y < h * 0.35 - 5) ion.y += 2.5;
+                    } else if (ion.type === 'k') {
+                        if (time > 40) {
+                            ion.y -= 3;
+                            ion.x += Math.sin(time*0.05 + index)*0.5;
                         }
                     }
-                    for(let i = 1; i < animatedShapes.length; i++) {
-                        let curCenter = animatedShapes[i].shapeSpec.center;
-                        animatedShapes[i].updateStyle({ center: { x: curCenter.x, y: curCenter.y + 2.2, z: curCenter.z } });
-                    }
-                    viewer.render();
-                } else {
-                    clearInterval(animationInterval);
-                    // 과분극 완료에 따라 nCaV 채널의 반응 활성 상태를 알리는 색상 변화 연출 (청록색)
-                    staticShapes[5].updateStyle({ color: '#34d399' });
-                    staticShapes[6].updateStyle({ color: '#34d399' });
-                    viewer.render();
-                    unlockNextStep(2);
-                }
-            }, 30);
-        }
-
-        // ==========================================
-        // [ㄴ단계] 기계적 자극에 의한 nCaV 활성화와 Ca²⁺ 전류 형성
-        // ==========================================
-        function runStage2() {
-            if (!viewer) return;
-            clearCurrentAnimation();
-            updateStatus("ㄴ. 기계적 자극 및 nCaV 오픈", "접촉에 의한 물리적인 기계적 자극이 유입되면서 세포막 전체가 탈분극 상태로 대전됩니다. 이에 반응하여 활성 대기 중이던 nCaV 채널의 기둥 구조가 사방으로 확장되며 완전히 개방(오픈)되고, 외부 세포외액에 대기하던 대량의 Ca²⁺ 이온들이 안쪽 전류를 형성하며 세포 내부로 빠르게 유입됩니다.");
-
-            // 카메라 이동: nAChR에서 nCaV 채널로 부드러운 패닝 시점 무빙
-            viewer.animateTo({ center: { x: 40, y: 0, z: 0 }, zoom: 1.5 }, 1000);
-            
-            // nCaV 채널 게이트 오픈 구조적 변형 연출
-            staticShapes[5].updateStyle({ start: {x: 28, y: -25, z: 0}, end: {x: 28, y: 25, z: 0}, color: '#38bdf8' });
-            staticShapes[6].updateStyle({ start: {x: 52, y: -25, z: 0}, end: {x: 52, y: 25, z: 0}, color: '#38bdf8' });
-
-            // 세포 외부 영역에 대량의 Ca2+ 이온 구조체 무더기 배치
-            for(let i=0; i<25; i++) {
-                let caIon = viewer.addSphere({
-                    center: { x: 34 + (Math.random()*12), y: 45 + (Math.random()*25), z: -5 + (Math.random()*10) },
-                    radius: 1.5, color: '#60a5fa'
                 });
-                animatedShapes.push(caIon);
             }
 
-            let frame = 0;
-            animationInterval = setInterval(() => {
-                frame++;
-                let arrived = 0;
-                for(let i=0; i<animatedShapes.length; i++) {
-                    let cur = animatedShapes[i].shapeSpec.center;
-                    if(cur.y > -45) {
-                        // 채널 내부 정중앙 축으로 수렴하며 쏟아져 내리는 역학 동선
-                        let dx = (40 - cur.x) * 0.05;
-                        animatedShapes[i].updateStyle({ center: { x: cur.x + dx, y: cur.y - 2.0, z: cur.z } });
+            // [2단계 연출 연동 연산]
+            if (currentStage === 2) {
+                ions.forEach(ion => {
+                    if (ion.y < h * 0.7) {
+                        ion.y += 3.5;
+                        ion.x += (w * 0.75 - ion.x) * 0.03;
                     } else {
-                        arrived++;
+                        ion.x += (w/2 - ion.x) * 0.05;
+                        ion.y += (h*0.72 - ion.y) * 0.05;
                     }
-                }
-                viewer.render();
-                if(arrived >= animatedShapes.length || frame > 85) {
-                    clearInterval(animationInterval);
-                    unlockNextStep(3);
-                }
-            }, 30);
-        }
-
-        // ==========================================
-        // [ㄷ단계] 자포 내부 압력과 물 유입에 의한 발사 에너지 형성
-        // ==========================================
-        function runStage3() {
-            if (!viewer) return;
-            clearCurrentAnimation();
-            updateStatus("ㄷ. 삼투압 형성 및 기질 팽윤", "세포막을 통과해 하단으로 쏟아져 유입된 양이온들이 자포 캡슐 중심에 뭉쳐 있는 음전하성 고분자 기질(Poly-γ-glutamate 사슬) 측쇄에 정전기적으로 결합합니다. 내부 용질 농도가 급격하게 증가함에 따라, 농도 구배에 부합하여 외부의 무수한 물 분자(H₂O)들이 자포 내부로 맹렬히 삼투 압입되며 기질 전체가 크게 부풀어 오르는 팽윤(Swelling) 현상이 일어납니다.");
-
-            // 카메라 이동: 세포막 채널 영역에서 하부 자포 캡슐 내부 구조로 완전 줌인
-            viewer.animateTo({ center: { x: 0, y: -135, z: -40 }, zoom: 1.1 }, 1000);
-
-            // Poly-gamma-glutamate 사슬 노드 구형 사슬 배치
-            for(let i=0; i<10; i++) {
-                let pNode = viewer.addSphere({ center: { x: -18 + (i*4), y: -135 + (Math.sin(i)*4), z: -40 }, radius: 3, color: '#f472b6' });
-                animatedShapes.push(pNode);
-            }
-
-            // 외부 환경으로부터 캡슐 안쪽으로 밀려 들어갈 다량의 물 분자 배치
-            for(let i=0; i<35; i++) {
-                let theta = Math.random() * Math.PI * 2;
-                let r = 65 + (Math.random()*25);
-                let wMolecule = viewer.addSphere({
-                    center: { x: Math.cos(theta)*r, y: -135 + (Math.sin(theta)*r), z: -40 },
-                    radius: 1.1, color: '#38bdf8'
                 });
-                animatedShapes.push(wMolecule);
             }
 
-            let frame = 0;
-            animationInterval = setInterval(() => {
-                frame++;
-                // 물 분자들의 중심부 수렴 흐름 제어
-                for(let i=10; i<animatedShapes.length; i++) {
-                    let cur = animatedShapes[i].shapeSpec.center;
-                    let dx = (0 - cur.x) * 0.05;
-                    let dy = (-135 - cur.y) * 0.05;
-                    animatedShapes[i].updateStyle({ center: { x: cur.x + dx, y: cur.y + dy, z: cur.z } });
-                }
-
-                // 물이 차오름에 따라 음전하 고분자 사슬 기질 입자가 거대하게 비대해지는 연출 (팽윤)
-                if(frame > 15 && frame < 60) {
-                    for(let i=0; i<10; i++) {
-                        animatedShapes[i].updateStyle({ radius: animatedShapes[i].shapeSpec.radius + 0.07 });
+            // [3단계 연출 연동 연산]
+            if (currentStage === 3) {
+                ions.forEach(ion => {
+                    let dx = (w / 2) - ion.x;
+                    let dy = (h * 0.75) - ion.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist > 5) {
+                        ion.x += dx * 0.06;
+                        ion.y += dy * 0.06;
                     }
-                    // 외부 캡슐 투명 주머니 외경도 확장
-                    staticShapes[7].updateStyle({ radius: staticShapes[7].shapeSpec.radius + 0.18 });
+                });
+                if (capsuleRadius < 75) {
+                    capsuleRadius += 0.4;
+                    capsuleColor = `rgba(16, 185, 129, ${0.2 + (capsuleRadius-45)*0.005})`;
                 }
-                viewer.render();
+            }
 
-                if(frame >= 70) {
-                    clearInterval(animationInterval);
-                    unlockNextStep(4);
+            // [4단계 연출 연동 연산]
+            if (currentStage === 4) {
+                jitter = 4;
+                capsuleColor = 'rgba(239, 68, 68, 0.4)';
+                capsuleStroke = 'rgba(239, 68, 68, 0.9)';
+            }
+
+            // [5단계 피날레 연출 연동 연산]
+            if (currentStage === 5) {
+                if (shaftY < h * 0.35) {
+                    shaftY += 6;
+                } else if (tubuleLength < h * 0.4) {
+                    tubuleLength += 8;
+                    if (Math.random() > 0.4) {
+                        let curY = h * 0.85 - shaftY * 0.9 - tubuleLength;
+                        let side = Math.random() > 0.5 ? 1 : -1;
+                        barbs.push({ y: curY, vx: side * 14 });
+                    }
                 }
-            }, 35);
+            }
+
+            drawScene();
+            animationFrameId = requestAnimationFrame(updateAnimation);
         }
 
-        // ==========================================
-        // [ㄹ단계] 캡슐벽 탄성 에너지 저장
-        // ==========================================
-        function runStage4() {
-            if (!viewer) return;
-            clearCurrentAnimation();
-            updateStatus("ㄹ. 복합 층상구조의 탄성 변형", "삼투압 팽윤의 결과로 자포 내부 압력은 무려 150 bar(수심 1,500m 압력)에 도달합니다. 이 무지막지한 팽창력을 견뎌내며, 단단하게 얽혀 있던 Minicollagen 그물망 섬유들과 내부의 Shaft 단백질 섬유 가닥들이 탄성 한계치까지 팽팽하게 휘어지고 비틀리면서(Bending & Twisting) 역학적인 탄성 에너지를 내부에 가득 저장합니다.");
-
-            // 카메라 워킹: 전체적인 캡슐벽의 탄성 응축을 보기 위해 광각 매크로 뷰 줌아웃
-            viewer.animateTo({ center: { x: 0, y: -135, z: -40 }, zoom: 0.95 }, 1000);
+        function startStage(stage) {
+            currentStage = stage;
+            cancelAnimationFrame(animationFrameId);
+            time = 0;
+            ions = [];
             
-            // 임계 압력에 의한 에너지 집약 시각화 (노란색 ➔ 붉은색 그라데이션)
-            staticShapes[7].updateStyle({ color: '#fbbf24', opacity: 0.4 });
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
 
-            let jitterFrame = 0;
-            // 150 bar 내부 저항에 의한 단백질 그물망의 미세 떨림 루프 연출
-            animationInterval = setInterval(() => {
-                jitterFrame++;
-                let jitter = Math.sin(jitterFrame * 1.6) * 0.9;
-                staticShapes[7].updateStyle({ center: { x: jitter, y: -135, z: -40 } });
-                viewer.render();
+            // 스테이지 진입에 따른 UI 활성화 동기화 제어
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById(`card-${i}`).classList.remove("active");
+            }
+            document.getElementById(`card-${stage}`).classList.add("active");
 
-                if(jitterFrame > 55) {
-                    clearInterval(animationInterval);
-                    // 에너지가 폭발하기 직전의 임계 상태 레드 시그널 컬러 매핑 후 대기
-                    staticShapes[7].updateStyle({ center: { x: 0, y: -135, z: -40 }, color: '#ef4444' }); 
-                    viewer.render();
-                    unlockNextStep(5);
-                }
-            }, 30);
-        }
-
-        // ==========================================
-        // [ㅁ단계] shaft discharge, shaft eversion, tubule eversion
-        // ==========================================
-        function runStage5() {
-            if (!viewer) return;
-            clearCurrentAnimation();
-            updateStatus("ㅁ. 자포관 전개 3단계 피날레", "축적되었던 150 bar의 탄성 에너지가 문이 열림과 동시에 폭발하며 물리적인 사출 메커니즘이 완성됩니다. [1] Shaft 덩어리가 상방 표적 방향으로 고속 방출(Discharge)되며 두 겹의 관 벽을 형성하고, [2] 커넥터 단백질 반동력으로 인해 소매가 뒤집히듯 안팎이 180도 부드럽게 뒤집히며(Eversion) 내부에 빈 보호 통로(Lumen)를 확보합니다. [3] 최종적으로 캡슐 속에 말려 있던 유연한 Tubule 가닥이 앞선 Lumen 통로 내부를 관통해 마하의 속도로 전방 확장 도출되며, 내벽에 숨겨져 있던 작살형 가시(Barbs) 단백질 분자들을 바깥쪽 표면에 나선형 격자로 정렬 전개시킵니다.");
-
-            // 사출 궤적을 롱샷으로 포착하기 위해 전체 화면 리셋 및 카메라 롱뷰 셋팅
-            viewer.removeAllShapes();
-            viewer.animateTo({ center: { x: 0, y: 130, z: 0 }, zoom: 0.52 }, 1200);
-
-            // 초기 압축형 Shaft 관형 실린더 생성
-            let shaft = viewer.addCylinder({ start: {x:0, y:-60, z:0}, end: {x:0, y:0, z:0}, radius: 8, color: '#34d399', fromCap: true, toCap: true });
-            animatedShapes.push(shaft);
-
-            let subStage = 0;
-            let progress = 0;
-            
-            animationInterval = setInterval(() => {
-                progress += 0.04;
+            // 핵심 기작 해설 실시간 로드 매핑
+            if (stage === 1) {
+                updateStatus("ㄱ. 화학적 자극 및 과분극", "ACh가 nAChR에 특이적으로 결합하여 K⁺ 채널 개방 및 대량의 세포 외 유출을 유도하여 전기적 과분극(Hyperpolarization)을 유도합니다. 이 조건 변화를 통해 불활성이던 nCaV 채널이 프라이밍 모드로 변환됩니다.");
                 
-                if (subStage === 0) {
-                    // [서브 1] Shaft Discharge
-                    let currentY = -60 + (130 * progress);
-                    shaft.updateStyle({ start: {x:0, y:currentY, z:0}, end: {x:0, y:currentY + 55, z:0} });
-                    if(progress >= 1) { subStage = 1; progress = 0; }
-                } 
-                else if (subStage === 1) {
-                    // [서브 2] Shaft Eversion (폭 확장 및 속이 빈 반투명 Lumen 통로 가시화)
-                    shaft.updateStyle({ radius: 16, color: '#60a5fa', opacity: 0.35 });
-                    if(progress >= 0.4) { 
-                        subStage = 2; progress = 0; 
-                        // [서브 3 관통 터뷸 준비]
-                        let tubule = viewer.addCylinder({ start: {x:0, y:75, z:0}, end: {x:0, y:80, z:0}, radius: 3, color: '#f472b6' });
-                        animatedShapes.push(tubule);
-                    }
-                } 
-                else if (subStage === 2) {
-                    // [서브 3] Tubule Eversion & Barbs 나선 전개
-                    let tubule = animatedShapes[1];
-                    let tExt = 80 + (240 * progress);
-                    tubule.updateStyle({ end: {x:0, y:tExt, z:0} });
-
-                    // 터뷸이 솟구쳐 뒤집어지며 가시(Barbs)들이 관 외벽으로 튀어나오는 수학적 나선 동선 연출
-                    if (Math.random() > 0.38 && tExt < 310) {
-                        let angle = progress * 18;
-                        let bx = Math.cos(angle) * 10;
-                        let bz = Math.sin(angle) * 10;
-                        let barb = viewer.addCylinder({
-                            start: { x: 0, y: tExt - 6, z: 0 }, end: { x: bx, y: tExt, z: bz },
-                            radius: 1.5, color: '#ef4444', toCap: true
-                        });
-                        animatedShapes.push(barb);
-                    }
-
-                    if(progress >= 1) {
-                        clearInterval(animationInterval);
-                        updateStatus("✨ 메커니즘 구동 완료", "말미잘 자포세포의 5단계 정밀 분자 발사 사이클 전개가 완벽하게 검증되었습니다. 역학적 반전 구조와 바브의 정렬이 모두 끝났습니다.");
-                    }
+                // 아세틸콜린 유도 이온 객체 배치
+                ions.push({ x: w * 0.25, y: h * 0.1, r: 6, color: '#f59e0b', type: 'ach', glow: true });
+                // K+ 이온 배치
+                for(let i=0; i<15; i++) {
+                    ions.push({ x: w * 0.23 + (Math.random()*15), y: h * 0.38 + (Math.random()*15), r: 2.5, color: '#a7f3d0', type: 'k' });
                 }
-                viewer.render();
-            }, 40);
+                setTimeout(() => { document.getElementById("btn-2").disabled = false; }, 2000);
+            } 
+            else if (stage === 2) {
+                updateStatus("ㄴ. 기계적 자극 및 nCaV 오픈", "접촉에 의한 물리 기계 자극이 가해지면 막전위가 탈분극되며 nCaV 채널이 전면 개방됩니다. 이에 따라 세포 외액의 고농도 Ca²⁺ 이온들이 안쪽 전류를 형성하며 폭포수처럼 세포 내부로 쏟아져 유입됩니다.");
+                
+                // 외부 Ca2+ 이온 배치 무더기 셋팅
+                for(let i=0; i<30; i++) {
+                    ions.push({ x: w * 0.72 + (Math.random()*25), y: h * 0.05 + (Math.random()*100), r: 3, color: '#38bdf8', type: 'ca' });
+                }
+                setTimeout(() => { document.getElementById("btn-3").disabled = false; }, 2000);
+            } 
+            else if (stage === 3) {
+                updateStatus("ㄷ. 삼투압 형성 및 기질 팽윤", "세포질 내부로 밀려든 이온들이 자포 내부의 음전하성 고분자 기질과 정전기적으로 결합합니다. 내부 용질 농도가 폭발적으로 증가하며, 강력한 삼투압 경사에 부합해 외부 수분(H₂O)이 급격하게 압입되며 내부 기질이 거대하게 팽윤합니다.");
+                
+                // 유입되는 물 분자들 생성 배치
+                for(let i=0; i<40; i++) {
+                    let angle = Math.random() * Math.PI * 2;
+                    let r = 120 + Math.random() * 50;
+                    ions.push({ x: w/2 + Math.cos(angle)*r, y: h*0.75 + Math.sin(angle)*r, r: 2, color: '#60a5fa', type: 'water' });
+                }
+                setTimeout(() => { document.getElementById("btn-4").disabled = false; }, 2000);
+            } 
+            else if (stage === 4) {
+                updateStatus("ㄹ. 복합 층상구조의 탄성 변형", "수분 압입의 결과로 캡슐 내부 압력은 한계치인 150 bar에 육박합니다.minicollagen그물망 섬유와 내벽 구조물들이 변형 저항력에 부합해 뒤틀리고 늘어나면서 내부 탄성 에너지를 한계치까지 축적합니다.");
+                
+                setTimeout(() => { document.getElementById("btn-5").disabled = false; }, 2000);
+            } 
+            else if (stage === 5) {
+                updateStatus("ㅁ. 자포관 전개 3단계", "[1] Shaft 가 초고속 방출(Discharge)되며 두 겹의 이중 벽을 만들고, [2] 반동력에 의해 안팎이 180도 뒤집어지는 Eversion을 완료해 내부 통로(Lumen)를 확보합니다. [3] 최종적으로 내부에 말려있던 Tubule이 통로를 관통 돌출하며 나선 격자형 작살 가시(Barbs)를 외벽 표면에 활짝 정개시킵니다.");
+                
+                shaftY = 0;
+                tubuleLength = 0;
+                barbs = [];
+            }
+
+            updateAnimation();
         }
 
         function updateStatus(title, desc) {
             document.getElementById("status-title").innerText = title;
             document.getElementById("status-desc").innerText = desc;
-        }
-
-        function unlockNextStep(stepIdx) {
-            for(let i=1; i<=5; i++) {
-                document.getElementById(`card-${i}`).classList.remove("active");
-            }
-            document.getElementById(`card-${stepIdx}`).classList.add("active");
-            document.getElementById(`btn-${stepIdx}`).disabled = false;
         }
     </script>
 </body>
