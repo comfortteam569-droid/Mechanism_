@@ -3,423 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>하이브리드 자포 발사 메커니즘 및 PDB 분자 구조 대시보드</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <title>말미잘 자포 발사 실제 PDB 단백질 3D 뷰어</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://3dmol.org/build/3Dmol-min.js"></script>
     
     <style>
         :root {
-            --bg-color: #060913;
-            --panel-bg: rgba(13, 18, 33, 0.92);
+            --bg-dark: #070a13;
+            --panel-bg: rgba(15, 23, 42, 0.9);
             --primary: #3b82f6;
-            --primary-hover: #1d4ed8;
-            --accent: #10b981;
-            --text-main: #f3f4f6;
-            --text-muted: #9ca3af;
-            --pdb-color: #fbbf24;
+            --primary-active: #2563eb;
+            --accent: #fbbf24;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
         }
 
         body, html {
             margin: 0; padding: 0;
             width: 100%; height: 100%;
-            background-color: var(--bg-color);
+            background-color: var(--bg-dark);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             color: var(--text-main);
             overflow: hidden;
         }
 
-        #container {
+        #dashboard {
             display: flex;
             width: 100vw; height: 100vh;
         }
 
-        /* 제어 패널 */
-        #control-panel {
-            width: 420px; height: 100%;
+        /* 왼쪽 정보 및 제어반 */
+        #sidebar {
+            width: 400px; height: 100%;
             background: var(--panel-bg);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(12px);
             border-right: 1px solid rgba(255, 255, 255, 0.08);
             padding: 24px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
             z-index: 10;
-            box-shadow: 8px 0 32px rgba(0,0,0,0.6);
-            overflow-y: auto;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
         }
 
-        #viewer-container {
+        /* 오른쪽 전체 화면 리얼 3D 분자 뷰어 */
+        #main-viewer-container {
             flex: 1; height: 100%;
             position: relative;
+            background: #020408;
+        }
+
+        #molecule-viewer {
+            width: 100%; height: 100%;
         }
 
         h1 {
-            font-size: 19px; margin: 0 0 4px 0; font-weight: 800;
+            font-size: 18px; margin: 0 0 6px 0; font-weight: 800;
+            letter-spacing: -0.5px;
             background: linear-gradient(to right, #60a5fa, #34d399);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
-        
-        .subtitle { font-size: 11.5px; color: var(--text-muted); margin-bottom: 16px; }
 
-        .step-card {
+        .subtitle {
+            font-size: 11px; color: var(--text-sub); margin-bottom: 24px;
+        }
+
+        .step-list {
+            display: flex; flex-direction: column; gap: 10px;
+        }
+
+        .step-item {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 10px; padding: 10px; margin-bottom: 8px;
-            transition: all 0.25s ease;
+            border-radius: 8px; padding: 12px; cursor: pointer;
+            transition: all 0.2s ease;
         }
 
-        .step-card.active {
+        .step-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .step-item.active {
             border-color: var(--primary);
-            background: rgba(59, 130, 246, 0.08);
+            background: rgba(59, 130, 246, 0.12);
         }
 
-        .btn {
-            width: 100%; padding: 10px 12px;
-            background-color: var(--primary); color: white;
-            border: none; border-radius: 6px;
-            font-size: 13px; font-weight: 600; cursor: pointer;
-            text-align: left;
-        }
-        .btn:disabled { background-color: #171e2e; color: #4b5563; cursor: not-allowed; }
-
-        .pdb-tag-container { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
-        .pdb-tag {
-            font-size: 10px; font-family: monospace; background: rgba(251, 191, 36, 0.1);
-            color: var(--pdb-color); padding: 1px 5px; border-radius: 4px;
-            border: 1px solid rgba(251, 191, 36, 0.15);
+        .step-header {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 12.5px; font-weight: 700; margin-bottom: 4px;
         }
 
-        #status-box {
-            margin-top: 10px; background: rgba(0, 0, 0, 0.3);
-            border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.5;
-            border-left: 3px solid var(--primary); min-height: 120px;
+        .pdb-badge {
+            font-family: monospace; font-size: 11px; color: var(--accent);
+            background: rgba(251, 191, 36, 0.12); padding: 2px 6px; border-radius: 4px;
+            border: 1px solid rgba(251, 191, 36, 0.2);
         }
-        #status-title { font-weight: 700; margin-bottom: 4px; color: #60a5fa; }
-        
-        #gui-hint {
+
+        /* 최소한의 직관적인 요약 설명창 */
+        #description-panel {
+            margin-top: auto; background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px; padding: 14px; border-left: 4px solid var(--primary);
+        }
+
+        #desc-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #60a5fa; }
+        #desc-text { font-size: 12px; line-height: 1.5; color: #e2e8f0; text-align: justify; }
+
+        /* 화면 가이드 힌트 */
+        #ui-hint {
             position: absolute; top: 20px; left: 20px;
-            background: rgba(0,0,0,0.7); padding: 6px 14px; border-radius: 20px;
-            font-size: 11px; color: #60a5fa; border: 1px solid rgba(96,165,250,0.2);
-            pointer-events: none; z-index: 5;
+            background: rgba(0,0,0,0.75); padding: 8px 16px; border-radius: 30px;
+            font-size: 11.5px; color: #60a5fa; border: 1px solid rgba(96,165,250,0.25);
+            pointer-events: none; z-index: 5; backdrop-filter: blur(4px);
         }
 
-        /* 🌟 핵심: 우측 하단 진짜 분자 구조 라이브 인스펙터 창 (Glassmorphism UI) */
-        #pdb-inspector-window {
-            position: absolute;
-            bottom: 24px; right: 24px;
-            width: 340px; height: 320px;
-            background: rgba(10, 15, 30, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 16px;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.7);
-            backdrop-filter: blur(16px);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            z-index: 20;
+        /* 로딩 애니메이션 오버레이 */
+        #loading-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 4, 8, 0.85); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 15;
+            font-size: 13px; color: #60a5fa; font-weight: 600;
         }
-        #inspector-header {
-            background: rgba(255,255,255,0.03);
-            padding: 10px 14px;
-            font-size: 12px;
-            font-weight: 700;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            color: var(--pdb-color);
-            display: flex;
-            justify-content: space-between;
+        .spinner {
+            width: 30px; height: 30px; border: 3px solid rgba(59, 130, 246, 0.2);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: spin 0.8s linear infinite; margin-bottom: 12px;
         }
-        #pdb-stage-viewer {
-            flex: 1;
-            width: 100%;
-            background: #020408;
-            position: relative;
-        }
-        #pdb-loading-overlay {
-            position: absolute; top:0; left:0; width:100%; height:100%;
-            background: rgba(5,7,15,0.9); display: flex; align-items: center;
-            justify-content: center; font-size: 12px; color: #60a5fa; z-index: 25;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div id="container">
-        <div id="control-panel">
-            <h1>자포 발사 분자 메커니즘</h1>
-            <div class="subtitle">서희 학생 데이터 시트 기반 하이브리드 대시보드</div>
+    <div id="dashboard">
+        <div id="sidebar">
+            <h1>자포 발사 분자 구조 분석</h1>
+            <div class="subtitle">실제 RCSB PDB 생체 고분자 데이터 동적 뷰어</div>
 
-            <div class="step-card active" id="card-1">
-                <button class="btn" id="btn-1" onclick="triggerStage(1)">ㄱ. 화학적 자극 및 과분극</button>
-                <div class="pdb-tag-container"><span class="pdb-tag">nAChR [7KCO]</span><span class="pdb-tag">K+ [6V38]</span></div>
-            </div>
-            <div class="step-card" id="card-2">
-                <button class="btn" id="btn-2" onclick="triggerStage(2)" disabled>ㄴ. 기계적 자극 및 nCaV 활성</button>
-                <div class="pdb-tag-container"><span class="pdb-tag">TRP [6VRI]</span><span class="pdb-tag">nCaV [6JPA]</span></div>
-            </div>
-            <div class="step-card" id="card-3">
-                <button class="btn" id="btn-3" onclick="triggerStage(3)" disabled>ㄷ. 삼투압 형성 및 기질 팽윤</button>
-                <div class="pdb-tag-container"><span class="pdb-tag">Poly-γ-Glu [1A9M]</span><span class="pdb-tag">Capsule [1CAG]</span></div>
-            </div>
-            <div class="step-card" id="card-4">
-                <button class="btn" id="btn-4" onclick="triggerStage(4)" disabled>ㄹ. 캡슐벽 탄성 에너지 저장</button>
-                <div class="pdb-tag-container"><span class="pdb-tag">Minicollagen [1BKV]</span><span class="pdb-tag">Nematogalectin [6RRE]</span></div>
-            </div>
-            <div class="step-card" id="card-5">
-                <button class="btn" id="btn-5" onclick="triggerStage(5)" disabled>ㅁ. 자포관 단계적 전개 (Eversion)</button>
-                <div class="pdb-tag-container"><span class="pdb-tag">Tubule [3HQV]</span><span class="pdb-tag">Barbs [4UXE]</span></div>
+            <div class="step-list">
+                <div class="step-item active" onclick="switchPDB('7KCO', 1)">
+                    <div class="step-header"><span>ㄱ. 화학적 자극 수용체</span><span class="pdb-badge">7KCO</span></div>
+                </div>
+                <div class="step-item" onclick="switchPDB('6JPA', 2)">
+                    <div class="step-header"><span>ㄴ. 전압개폐성 칼슘 채널</span><span class="pdb-badge">6JPA</span></div>
+                </div>
+                <div class="step-item" onclick="switchPDB('1A9M', 3)">
+                    <div class="step-header"><span>ㄷ. 삼투압 형성 고분자 기질</span><span class="pdb-badge">1A9M</span></div>
+                </div>
+                <div class="step-item" onclick="switchPDB('1BKV', 4)">
+                    <div class="step-header"><span>ㄹ. 캡슐벽 미니콜라겐 그물망</span><span class="pdb-badge">1BKV</span></div>
+                </div>
+                <div class="step-item" onclick="switchPDB('3HQV', 5)">
+                    <div class="step-header"><span>ㅁ. 사출 자포관 벽 단백질</span><span class="pdb-badge">3HQV</span></div>
+                </div>
             </div>
 
-            <div id="status-box">
-                <div id="status-title">시스템 준동 상태</div>
-                <div id="status-desc">버튼을 누르면 메인 화면의 메커니즘 애니메이션과 함께, 우측 하단 인스펙터에 RCSB 데이터베이스의 진짜 3D 분자 구조가 실시간 로드됩니다.</div>
+            <div id="description-panel">
+                <div id="desc-title">nAChR (Nicotinic Acetylcholine Receptor)</div>
+                <div id="desc-text">자포 사출의 첫 신호를 여는 화학적 수용체입니다. 아세틸콜린과 결합하여 이온 채널 통로를 미세하게 개방하고, 세포막의 전기화학적 과분극 환경을 유도하여 다음 발사 단계를 프라이밍합니다.</div>
             </div>
         </div>
 
-        <div id="viewer-container">
-            <div id="gui-hint">🎬 메인 화면: 발사 메커니즘 (드래그 회전 가능)</div>
-            
-            <div id="pdb-inspector-window">
-                <div id="inspector-header">
-                    <span>🔍 REAL-TIME PDB INSPECTOR</span>
-                    <span id="current-pdb-id">PDB: Ready</span>
-                </div>
-                <div id="pdb-stage-viewer">
-                    <div id="pdb-loading-overlay">대시보드 가동 대기 중...</div>
-                </div>
+        <div id="main-viewer-container">
+            <div id="ui-hint">🖱️ 휠을 굴려 확대/축소(Zoom)하고, 드래그하여 실제 원자 구조를 입체 회전하세요.</div>
+            <div id="loading-overlay">
+                <div class="spinner"></div>
+                <div id="loading-text">RCSB 구조 데이터베이스 동시 접속 중...</div>
             </div>
+            <div id="molecule-viewer"></div>
         </div>
     </div>
 
     <script>
-        // --- 1. 메인 Three.js 애니메이션 엔진 구동 ---
-        const container = document.getElementById('viewer-container');
-        let scene, camera, renderer, mainGroup;
-        let currentStage = 0; let animTime = 0;
-        let achMolecule, nAChRChannel, nCaVChannel, lipidMembrane, capsuleMesh, capsuleWire;
-        let matrixChains = [], activeIons = [], waterParticles = [];
-        let shaftGroup, shaftMesh, tubuleMesh, shaftHeight = 0, tubuleHeight = 0, barbMeshes = [];
-        let isDragging = false; let previousMousePosition = { x: 0, y: 0 };
+        let viewer = null;
 
-        // --- 2. 우측 하단 3Dmol.js 진짜 분자 구조 뷰어 초기화 ---
-        let pdbViewer = null;
+        // 각 단계별 요약 설명문 데이터 세트
+        const descriptions = {
+            1: {
+                title: "nAChR (화학 자극 수용체) | PDB: 7KCO",
+                text: "자포 사출의 신호를 여는 화학적 수용체입니다. 아세틸콜린과 결합하여 포어(Pore) 중심을 열고, 세포막의 이온 환경을 변화시켜 전체 발사 메커니즘을 시동하는 스타터 역할을 수행합니다."
+            },
+            2: {
+                title: "nCaV (전압개폐성 칼슘 채널) | PDB: 6JPA",
+                text: "물리적 자극(탈분극)을 감지하면 중앙의 기둥 도메인들이 구조적 전이를 일으키며 완전히 개방됩니다. 세포 외부에 존재하던 고농도의 Ca²⁺ 이온을 자포 내부 기질로 폭포수처럼 유입시킵니다."
+            },
+            3: {
+                title: "Poly-γ-glutamate (음전하 고분자 기질) | PDB: 1A9M",
+                text: "자포 내부에 꽉 들어찬 음전하성 고분자 사슬입니다. 유입된 칼슘 이온들과 강력하게 정전기적으로 흡착하여 내부 용질 농도를 급상승시킵니다. 이로 인해 무수한 수분이 대량 흡입되는 삼투 팽윤(Swelling)의 원동력이 됩니다."
+            },
+            4: {
+                title: "Minicollagen (캡슐벽 단백질 그물망) | PDB: 1BKV",
+                text: "수분 흡입으로 발생하는 무려 150 bar의 엄청난 내부 유체 압력을 견디는 단단한 보호벽입니다. 콜라겐 특유의 촘촘한 삼중나선 격자 구조가 한계까지 휘어지며 강력한 탄성 위치 에너지를 압축하여 저장합니다."
+            },
+            5: {
+                title: "Tubule Wall Protein (자포관 단백질 구조) | PDB: 3HQV",
+                text: "압축된 에너지가 개방되면서 뒤집히듯 튕겨 나가는 중공형 자포관의 핵심 뼈대 단백질입니다. 강한 마찰과 물리 인장력을 견디며 타깃 표면을 정확하게 관통할 수 있도록 단단하면서도 유연한 원통형 나선 사슬을 형성합니다."
+            }
+        };
+
         $(document).ready(function() {
-            pdbViewer = $3Dmol.createViewer($('#pdb-stage-viewer'), { defaultcolors: $3Dmol.rasmolElementColors });
-            initSimulation();
-            animate();
+            // 뷰어 인스턴스 생성 및 기본 마우스 인터랙션(휠 줌 포함) 활성화
+            viewer = $3Dmol.createViewer($('#molecule-viewer'), {
+                defaultcolors: $3Dmol.rasmolElementColors
+            });
+            
+            // 첫 번째 PDB 구조 초기 로드
+            switchPDB('7KCO', 1);
         });
 
-        function initSimulation() {
-            scene = new THREE.Scene(); scene.background = new THREE.Color('#05070f');
-            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.set(0, 25, 110);
+        function switchPDB(pdbId, stageNum) {
+            if (!viewer) return;
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            container.appendChild(renderer.domElement);
+            // UI 상태 업데이트
+            $('#loading-overlay').fadeIn(100);
+            $('.step-item').removeClass('active');
+            $(`.step-list .step-item:nth-child(${stageNum})`).addClass('active');
 
-            const ambient = new THREE.AmbientLight(0xffffff, 0.5); scene.add(ambient);
-            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.85); dirLight1.position.set(20, 50, 30); scene.add(dirLight1);
-            const dirLight2 = new THREE.DirectionalLight(0x3b82f6, 0.45); dirLight2.position.set(-30, -10, -20); scene.add(dirLight2);
+            // 텍스트 설명 실시간 변경
+            document.getElementById('desc-title').innerText = descriptions[stageNum].title;
+            document.getElementById('desc-text').innerText = descriptions[stageNum].text;
 
-            mainGroup = new THREE.Group(); scene.add(mainGroup);
-            buildStructures();
-            setupControls();
-            window.addEventListener('resize', onWindowResize);
-        }
-
-        function buildStructures() {
-            // 세포막 모식도
-            lipidMembrane = new THREE.Mesh(new THREE.BoxGeometry(150, 2, 40), new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.7, transparent: true, opacity: 0.4 }));
-            lipidMembrane.position.y = 12; mainGroup.add(lipidMembrane);
-
-            // nAChR 모식 구조 (5량체)
-            nAChRChannel = new THREE.Group();
-            for (let i = 0; i < 5; i++) {
-                const angle = (i * 2 * Math.PI) / 5;
-                const sub = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 22, 12), new THREE.MeshStandardMaterial({ color: 0x2563eb }));
-                sub.position.set(Math.cos(angle) * 4.0, 0, Math.sin(angle) * 4.0); sub.name = "subunit_" + i;
-                nAChRChannel.add(sub);
-            }
-            nAChRChannel.position.set(-35, 12, 0); mainGroup.add(nAChRChannel);
-
-            // nCaV 모식 구조 (4량체)
-            nCaVChannel = new THREE.Group();
-            for (let i = 0; i < 4; i++) {
-                const angle = (i * 2 * Math.PI) / 4;
-                const sub = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 22, 12), new THREE.MeshStandardMaterial({ color: 0x4b5563 }));
-                sub.position.set(Math.cos(angle) * 4.4, 0, Math.sin(angle) * 4.4); nCaVChannel.add(sub);
-            }
-            nCaVChannel.position.set(35, 12, 0); mainGroup.add(nCaVChannel);
-
-            // ACh 분자
-            achMolecule = new THREE.Group();
-            const cAtom = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), new THREE.MeshStandardMaterial({ color: 0x374151 }));
-            achMolecule.add(cAtom); achMolecule.position.set(-35, 55, 0); mainGroup.add(achMolecule);
-
-            // 자포 캡슐
-            capsuleMesh = new THREE.Mesh(new THREE.SphereGeometry(22, 32, 32), new THREE.MeshStandardMaterial({ color: 0x10b981, transparent: true, opacity: 0.22 }));
-            capsuleWire = new THREE.Mesh(new THREE.SphereGeometry(22, 32, 32), new THREE.MeshBasicMaterial({ color: 0x34d399, wireframe: true, transparent: true, opacity: 0.28 }));
-            capsuleMesh.position.set(0, -26, 0); capsuleWire.position.copy(capsuleMesh.position);
-            mainGroup.add(capsuleMesh); mainGroup.add(capsuleWire);
-
-            // 고분자 매트릭스 기질 체인
-            for(let c=0; c<5; c++) {
-                let chain = new THREE.Group(); let lastPos = new THREE.Vector3(0,0,0);
-                for(let i=0; i<8; i++) {
-                    const node = new THREE.Mesh(new THREE.SphereGeometry(0.9, 12, 12), new THREE.MeshStandardMaterial({ color: 0xec4899 }));
-                    lastPos.add(new THREE.Vector3((Math.random()-0.5)*6, (Math.random()-0.5)*6, (Math.random()-0.5)*6));
-                    node.position.copy(lastPos); chain.add(node);
-                }
-                chain.position.set((Math.random()-0.5)*12, -26 + (Math.random()-0.5)*12, (Math.random()-0.5)*12);
-                mainGroup.add(chain); matrixChains.push(chain); chain.visible = false;
-            }
-        }
-
-        // --- 3. 실시간 PDB 구조 데이터베이스 로드 함수 ---
-        function loadRealPDBStructure(pdbId) {
-            if (!pdbViewer) return;
-            $('#pdb-loading-overlay').fadeIn(150);
-            document.getElementById('current-pdb-id').innerText = "NCBI PDB: " + pdbId;
-
-            pdbViewer.clear();
-            // RCSB PDB 서버에서 실제 원자 해상도 데이터 세트 다이렉트 다운로드 및 리본 모델 매핑
-            $3Dmol.download("pdb:" + pdbId, pdbViewer, {}, function(model) {
-                pdbViewer.setStyle({}, { ribbon: { color: 'spectrum' } }); // 단백질 2차 구조 리본화
-                pdbViewer.zoomTo();
-                pdbViewer.render();
-                $('#pdb-loading-overlay').fadeOut(200);
-            });
-        }
-
-        function triggerStage(stage) {
-            currentStage = stage;
-            for (let i = 1; i <= 5; i++) { document.getElementById(`card-${i}`).classList.remove("active"); }
-            document.getElementById(`card-${stage}`).classList.add("active");
-
-            if (stage === 1) {
-                updateStatusText("ㄱ. 화학적 자극 및 과분극 반응 연동", "ACh 분자가 수용체 결합 도메인에 부착됩니다. 이 신호로 nAChR 채널[7KCO]이 열리며 이온 평형 상태가 변동됩니다. 우측 하단에서 실제 nAChR 단백질의 5량체 리본 결정 구조를 확인하세요.");
-                smoothCamera(-35, 15, 55);
-                loadRealPDBStructure("7KCO"); // 진짜 nAChR 단백질 로드
-                setTimeout(() => { document.getElementById("btn-2").disabled = false; }, 1500);
-            } 
-            else if (stage === 2) {
-                updateStatusText("ㄴ. 기계적 자극에 의한 nCaV 활성화", "물리 자극을 수용해 nCaV 전압개폐성 채널[6JPA]이 열리며 Ca²⁺ 이온들이 폭포수처럼 유입됩니다. 우측 하단에서 4개 도메인으로 구성된 진짜 전압 개폐성 채널 구조를 분석할 수 있습니다.");
-                smoothCamera(35, 15, 55);
-                loadRealPDBStructure("6JPA"); // 진짜 nCaV 단백질 로드
-                setTimeout(() => { document.getElementById("btn-3").disabled = false; }, 1500);
-            } 
-            else if (stage === 3) {
-                updateStatusText("ㄷ. 삼투압 형성 및 기질 팽윤(Swelling)", "유입된 이온들이 고분자 기질 사슬[1A9M]에 결합하여 내부 농도가 급증합니다. 이에 따라 외부의 물 분자들이 삼투 현상으로 가속 흡입되며 캡슐이 팽창합니다.");
-                matrixChains.forEach(c => c.visible = true);
-                smoothCamera(0, -20, 65);
-                loadRealPDBStructure("1A9M"); // 진짜 polyglutamate 모형 결정 로드
-                setTimeout(() => { document.getElementById("btn-4").disabled = false; }, 1500);
-            } 
-            else if (stage === 4) {
-                updateStatusText("ㄹ. 캡슐벽 구조체의 탄성 에너지 긴장 응축", "내부 압력이 150 bar에 이르고, Minicollagen[1BKV] 그물망 복합체가 뒤틀리며 탄성 에너지를 극도로 응축합니다. 하단에서 강력한 탄성을 유도하는 콜라겐 삼중나선 결정 구조를 확인하세요.");
-                smoothCamera(0, -26, 50);
-                loadRealPDBStructure("1BKV"); // 진짜 Minicollagen 삼중나선 로드
-                setTimeout(() => { document.getElementById("btn-5").disabled = false; }, 1500);
-            } 
-            else if (stage === 5) {
-                updateStatusText("ㅁ. 자포관 단계적 전개 피날레 (Discharge)", "압축된 탄성력이 폭발하여 Shaft가 사출 및 180도 고속 뒤집힘(Eversion)을 일으키고 Tubule 관[3HQV]이 가속 연장됩니다. 동시에 작살형 가시들이 외벽에 돌출 정렬됩니다.");
-                smoothCamera(0, 30, 130);
-                loadRealPDBStructure("3HQV"); // 진짜 자포관 단백질 결정 로드
+            // 기존 구조 초기화 후 미국 RCSB 단백질 데이터베이스 서버에서 실시간 다운로드
+            viewer.clear();
+            $3Dmol.download("pdb:" + pdbId, viewer, {}, function(model) {
+                // 생물학 보고서에 가장 적합한 고해상도 리본(Cartoon) 모델 스타일 지정
+                viewer.setStyle({}, {
+                    cartoon: {
+                        color: 'spectrum', // N단말부터 C단말까지 무지개색 매핑
+                        thickness: 0.6
+                    }
+                });
                 
-                // 메인 애니메이션 요소 전환
-                lipidMembrane.visible = false; nAChRChannel.visible = false; nCaVChannel.visible = false; achMolecule.visible = false;
-                activeIons.forEach(i => mainGroup.remove(i.mesh)); activeIons = [];
-                matrixChains.forEach(c => c.visible = false); capsuleMesh.visible = false;
-
-                shaftGroup = new THREE.Group(); shaftGroup.position.set(0, -15, 0);
-                shaftMesh = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 1, 16), new THREE.MeshStandardMaterial({ color: 0x34d399, transparent: true, opacity: 0.85 })); 
-                shaftGroup.add(shaftMesh);
-                tubuleMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1, 16), new THREE.MeshStandardMaterial({ color: 0xec4899 })); 
-                shaftGroup.add(tubuleMesh); tubuleMesh.visible = false;
-                mainGroup.add(shaftGroup);
-            }
-        }
-
-        function updateStatusText(title, desc) {
-            document.getElementById("status-title").innerText = title;
-            document.getElementById("status-desc").innerText = desc;
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            animTime += 0.03;
-            if (!isDragging) mainGroup.rotation.y += 0.0012;
-
-            // 스테이지별 마이크로 애니메이션 렌더 루프
-            if (currentStage === 1) {
-                if (achMolecule.position.y > 23) { achMolecule.position.y -= 0.3; }
-                else {
-                    nAChRChannel.children.forEach(sub => {
-                        const angle = parseFloat(sub.name.split('_')[1]) * 2 * Math.PI / 5;
-                        sub.position.set(Math.cos(angle) * 4.6, 0, Math.sin(angle) * 4.6);
-                    });
-                }
-            }
-            if (currentStage === 2 && Math.random() < 0.4 && activeIons.length < 40) {
-                const ca = new THREE.Mesh(new THREE.SphereGeometry(0.8, 8, 8), new THREE.MeshStandardMaterial({ color: 0x38bdf8 }));
-                ca.position.set(35 + (Math.random()-0.5)*10, 45, (Math.random()-0.5)*10);
-                mainGroup.add(ca); activeIons.push(ca);
-            }
-            if (currentStage === 2) {
-                activeIons.forEach(ion => { if(ion.position.y > -15) ion.position.y -= 0.6; });
-            }
-            if (currentStage === 3) {
-                if (capsuleMesh.scale.x < 1.6) {
-                    capsuleMesh.scale.addScalar(0.004); capsuleWire.scale.addScalar(0.004);
-                    matrixChains.forEach(c => c.scale.addScalar(0.004));
-                }
-            }
-            if (currentStage === 4) {
-                const shake = 0.2;
-                capsuleMesh.position.set((Math.random()-0.5)*shake, -26 + (Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
-                capsuleWire.position.copy(capsuleMesh.position);
-            }
-            if (currentStage === 5) {
-                if (shaftHeight < 48) {
-                    shaftHeight += 1.0; shaftMesh.scale.y = shaftHeight; shaftMesh.position.y = shaftHeight / 2;
-                } else if (tubuleHeight < 75) {
-                    tubuleMesh.visible = true; tubuleHeight += 1.5;
-                    tubuleMesh.scale.y = tubuleHeight; tubuleMesh.position.y = shaftHeight + (tubuleHeight / 2);
-                }
-            }
-            renderer.render(scene, camera);
-        }
-
-        function setupControls() {
-            container.addEventListener('mousedown', (e) => { isDragging = true; previousMousePosition = { x: e.clientX, y: e.clientY }; });
-            container.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                const deltaMove = { x: e.clientX - previousMousePosition.x, y: e.clientY - previousMousePosition.y };
-                mainGroup.rotation.y += deltaMove.x * 0.005; mainGroup.rotation.x += deltaMove.y * 0.005;
-                previousMousePosition = { x: e.clientX, y: e.clientY };
+                viewer.zoomTo(); // 구조가 화면 중앙에 꽉 차도록 카메라 자동 정렬
+                viewer.render(); // 화면에 최종 가동
+                $('#loading-overlay').fadeOut(250);
             });
-            window.addEventListener('mouseup', () => { isDragging = false; });
-        }
-
-        function smoothCamera(tX, tY, tZ) {
-            let frame = 0; const total = 30;
-            const sX = camera.position.x; const sY = camera.position.y; const sZ = camera.position.z;
-            function step() {
-                frame++; const t = frame / total;
-                camera.position.x = sX + (tX - sX) * t;
-                camera.position.y = sY + (tY - sY) * t;
-                camera.position.z = sZ + (tZ - sZ) * t;
-                camera.lookAt(0, currentStage === 5 ? 25 : -12, 0);
-                if (frame < total) requestAnimationFrame(step);
-            }
-            step();
-        }
-
-        function onWindowResize() {
-            camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
         }
     </script>
 </body>
