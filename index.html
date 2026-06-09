@@ -2,119 +2,67 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nematostella vectensis 자포 발사 정밀 시뮬레이터</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://3dmol.org/build/3Dmol-min.js"></script>
+    <title>자포 사출 메커니즘 애니메이션</title>
     <style>
-        :root { --primary: #00d2ff; --bg: #05070a; --panel: rgba(15, 23, 42, 0.9); }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: var(--bg); font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
-        #container { display: flex; width: 100vw; height: 100vh; }
-        #sidebar { width: 400px; background: var(--panel); backdrop-filter: blur(20px); border-right: 1px solid rgba(255,255,255,0.1); padding: 30px; display: flex; flex-direction: column; z-index: 10; overflow-y: auto; }
-        #viewer-area { flex: 1; position: relative; }
-        #molecule-viewer { width: 100%; height: 100%; }
-        h1 { font-size: 20px; color: var(--primary); margin-bottom: 20px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
-        .step-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #ccc; padding: 15px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; text-align: left; transition: 0.3s; }
-        .step-btn.active { background: var(--primary); color: black; font-weight: bold; }
-        #status-box { margin-top: auto; padding: 20px; background: rgba(0,0,0,0.5); border-radius: 10px; border-left: 5px solid var(--primary); }
-        #status-box h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--primary); }
-        #status-box p { margin: 0; font-size: 13px; line-height: 1.5; color: #eee; }
-        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; color: var(--primary); display: none; }
+        body { background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Pretendard', sans-serif; }
+        
+        #canvas { width: 700px; height: 450px; position: relative; border: 1px solid #ddd; background: #f9f9f9; }
+        
+        /* 실제 분자 2D 그림 스타일 */
+        .mol-asset { 
+            width: 100%; height: 100%; position: absolute; top: 0; left: 0; 
+            opacity: 0; transition: opacity 0.8s ease, transform 0.5s ease;
+            object-fit: contain; pointer-events: none;
+        }
+        
+        .active { opacity: 1; }
+        
+        /* 메커니즘 작동 시각화 효과 */
+        .effect-swelling { transform: scale(1.15); } /* 3단계 팽윤 */
+        .effect-vibration { animation: vibrate 0.1s linear infinite; } /* 4단계 응축 진동 */
+        @keyframes vibrate { 0% { transform: translate(2px, 0); } 100% { transform: translate(-2px, 0); } }
+        
+        #controller { margin-top: 30px; }
+        button { padding: 12px 25px; cursor: pointer; background: #222; color: #fff; border-radius: 5px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div id="container">
-    <div id="sidebar">
-        <h1>자포 발사 시스템 정밀 제어</h1>
-        
-        <div class="step-btn" id="btn1" onclick="runMechanism(1)">1. 화학 자극 (nAChR priming)</div>
-        <div class="step-btn" id="btn2" onclick="runMechanism(2)">2. 기계 자극 (nCaV opening)</div>
-        <div class="step-btn" id="btn3" onclick="runMechanism(3)">3. 삼투 팽윤 (Poly-&gamma;-Glu)</div>
-        <div class="step-btn" id="btn4" onclick="runMechanism(4)">4. 탄성 에너지 축적 (Minicollagen)</div>
-        <div class="step-btn" id="btn5" onclick="runMechanism(5)">5. 초고속 사출 (Discharge)</div>
-
-        <div id="status-box">
-            <h3 id="status-title">시스템 대기 중</h3>
-            <p id="status-text">왼쪽 버튼을 눌러 시뮬레이션을 시작하세요. 실제 PDB 데이터를 기반으로 메커니즘이 구동됩니다.</p>
-        </div>
+    <div id="canvas">
+        <img src="step1_nAChR.png" class="mol-img mol-asset" id="step1">
+        <img src="step2_nCaV.png" class="mol-img mol-asset" id="step2">
+        <img src="step3_PolyGlu.png" class="mol-img mol-asset" id="step3">
+        <img src="step4_Minicollagen.png" class="mol-img mol-asset" id="step4">
+        <img src="step5_Tubule.png" class="mol-img mol-asset" id="step5">
     </div>
 
-    <div id="viewer-area">
-        <div id="loading">분자 데이터 로드 중...</div>
-        <div id="molecule-viewer"></div>
+    <div id="controller">
+        <button onclick="runMechanism()">보고서 메커니즘 애니메이션 시작</button>
     </div>
-</div>
 
-<script>
-    let viewer;
-    let currentModel = null;
-    let animationId = null;
+    <script>
+        async function runMechanism() {
+            const steps = [
+                { id: 'step1', effect: '' },
+                { id: 'step2', effect: '' },
+                { id: 'step3', effect: 'effect-swelling' }, // 3단계: 팽윤
+                { id: 'step4', effect: 'effect-vibration' }, // 4단계: 응축 진동
+                { id: 'step5', effect: '' }
+            ];
 
-    $(document).ready(function() {
-        viewer = $3Dmol.createViewer('molecule-viewer', { backgroundColor: '#05070a' });
-    });
-
-    const mechanismData = {
-        1: { pdb: "7KCO", title: "nAChR 결합 및 과분극", text: "ACH가 nAChR에 결합하여 이온 이동을 제어합니다. 이 과정에서 nCaV(6JPA) 채널이 반응 가능 상태로 프라이밍됩니다.", color: "cyan" },
-        2: { pdb: "6JPA", title: "nCaV 활성화 및 Calcium Influx", text: "기계적 자극에 의해 nCaV 채널이 전면 개방됩니다. Ca2+ 이온이 자포 내부로 폭포수처럼 유입됩니다.", color: "blue" },
-        3: { pdb: "1A9M", title: "Poly-&gamma;-glutamate 삼투 팽윤", text: "유입된 이온이 1A9M 기질에 결합하며 삼투압이 급증합니다. H2O가 압입되어 자포가 팽윤(Swelling)합니다.", color: "pink" },
-        4: { pdb: "1BKV", title: "탄성 에너지 저장 (Minicollagen)", text: "150 bar의 압력을 Minicollagen(1BKV) 그물망이 견디며 탄성 에너지를 한계치까지 응축합니다.", color: "yellow" },
-        5: { pdb: "3HQV", title: "Discharge & Eversion", text: "축적된 에너지가 폭발하며 Shaft와 Tubule(3HQV, 4UXE)이 고속으로 사출됩니다.", color: "red" }
-    };
-
-    function runMechanism(step) {
-        // UI 업데이트
-        $(".step-btn").removeClass("active");
-        $(`#btn${step}`).addClass("active");
-        $("#status-title").text(mechanismData[step].title);
-        $("#status-text").text(mechanismData[step].text);
-        $("#loading").show();
-
-        // 3D 뷰어 업데이트
-        viewer.clear();
-        if (animationId) cancelAnimationFrame(animationId);
-
-        const pdbId = mechanismData[step].pdb;
-        $3Dmol.download("pdb:" + pdbId, viewer, {}, function(model) {
-            $("#loading").hide();
-            
-            // 실제 분자 모습(Surface + Cartoon 하이브리드)
-            viewer.setStyle({}, { cartoon: { color: mechanismData[step].color } });
-            viewer.addSurface($3Dmol.SurfaceType.MS, { opacity: 0.5, color: mechanismData[step].color }, {}, {});
-            
-            viewer.zoomTo();
-            viewer.render();
-
-            // 보고서 메커니즘에 따른 애니메이션 구동
-            startAnimation(step);
-        });
-    }
-
-    function startAnimation(step) {
-        let time = 0;
-        function animate() {
-            time += 0.05;
-            
-            if (step === 1) { // 결합 애니메이션
-                viewer.rotate(0.5, 'y');
-            } else if (step === 2) { // 이온 유입 (채널 진동)
-                viewer.translate(Math.sin(time)*0.5, 0);
-            } else if (step === 3) { // 팽윤 (확대 애니메이션)
-                let scale = 1 + Math.sin(time*0.5) * 0.1;
-                viewer.zoom(scale);
-            } else if (step === 4) { // 응축 (고주파 진동)
-                viewer.translate(Math.random()*0.2, Math.random()*0.2);
-            } else if (step === 5) { // 사출 (이동 애니메이션)
-                viewer.translate(0, 2);
-                if (time > 10) time = 0; // 반복
+            for (let s of steps) {
+                // 이전 이미지 초기화
+                document.querySelectorAll('.mol-asset').forEach(img => img.classList.remove('active', 'effect-swelling', 'effect-vibration'));
+                
+                // 현재 단계 활성화 및 효과 적용
+                const current = document.getElementById(s.id);
+                current.classList.add('active');
+                if(s.effect) current.classList.add(s.effect);
+                
+                // 각 단계별 메커니즘 설명 시간 (2.5초)
+                await new Promise(r => setTimeout(r, 2500));
             }
-
-            viewer.render();
-            animationId = requestAnimationFrame(animate);
         }
-        animate();
-    }
-</script>
+    </script>
 </body>
 </html>
