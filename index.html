@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>말미잘 자포 발사 실제 분자 외형 3D 애니메이션 시뮬레이터</title>
+    <title>말미잘 자포 발사 실제 분자 표면 3D 애니메이션 시뮬레이터</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://3dmol.org/build/3Dmol-min.js"></script>
     
     <style>
         :root {
-            --bg-dark: #04060a;
-            --panel-bg: rgba(9, 13, 24, 0.94);
+            --bg-dark: #020408;
+            --panel-bg: rgba(7, 11, 21, 0.95);
             --primary: #3b82f6;
             --accent: #fbbf24;
             --text-main: #f8fafc;
@@ -40,12 +40,12 @@
         }
 
         /* 오른쪽 메인 3D 실제 분자 외형 뷰어 */
-        #main-viewer-container { flex: 1; height: 100%; position: relative; background: #000103; }
+        #main-viewer-container { flex: 1; height: 100%; position: relative; background: #000000; }
         #molecule-viewer { width: 100%; height: 100%; }
 
         h1 {
             font-size: 18px; margin: 0 0 4px 0; font-weight: 800;
-            background: linear-gradient(to right, #38bdf8, #a855f7);
+            background: linear-gradient(to right, #60a5fa, #f43f5e);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
         .subtitle { font-size: 11px; color: var(--text-sub); margin-bottom: 20px; }
@@ -64,17 +64,17 @@
 
         /* 설명창 */
         #description-panel { margin-top: auto; background: rgba(0, 0, 0, 0.6); border-radius: 8px; padding: 14px; border-left: 4px solid var(--primary); }
-        #desc-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #38bdf8; }
+        #desc-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #60a5fa; }
         #desc-text { font-size: 12px; line-height: 1.5; color: #e2e8f0; text-align: justify; }
 
         #ui-hint {
             position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.85);
-            padding: 8px 16px; border-radius: 30px; font-size: 11px; color: #a855f7;
-            border: 1px solid rgba(168,85,247,0.2); pointer-events: none; z-index: 5;
+            padding: 8px 16px; border-radius: 30px; font-size: 11px; color: #f43f5e;
+            border: 1px solid rgba(244,63,94,0.2); pointer-events: none; z-index: 5;
         }
         #loading-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 1, 3, 0.95); display: flex; flex-direction: column;
+            background: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column;
             align-items: center; justify-content: center; z-index: 15; font-size: 12px; color: #38bdf8;
         }
         .spinner { width: 24px; height: 24px; border: 2px solid rgba(56,189,248,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px; }
@@ -85,8 +85,8 @@
 
     <div id="dashboard">
         <div id="sidebar">
-            <h1>실제 분자 외형 애니메이션</h1>
-            <div class="subtitle">RCSB PDB 원자 충진 모델(Space-filling) 리얼 타임 시뮬레이션</div>
+            <h1>실제 분자 표면 애니메이션</h1>
+            <div class="subtitle">RCSB PDB 실제 분자 표면 모델(Surface) 실시간 시뮬레이터</div>
 
             <div class="step-list">
                 <div class="step-item active" onclick="loadStage('7KCO', 1)">
@@ -113,8 +113,8 @@
         </div>
 
         <div id="main-viewer-container">
-            <div id="ui-hint">🔮 실제 원자 질량이 뭉쳐진 고분자 형태입니다. 휠을 굴려 포어(Pore) 내부까지 줌인해 보세요.</div>
-            <div id="loading-overlay"><div class="spinner"></div><div id="loading-text">미국 RCSB 데이터베이스에서 실제 원자 질량 맵 다운로드 중...</div></div>
+            <div id="ui-hint">🧬 매끄러운 유기체 덩어리 형태의 진짜 분자 표면입니다. 마우스 휠로 확대/축소해 보세요.</div>
+            <div id="loading-overlay"><div class="spinner"></div><div id="loading-text">실제 단백질의 3D 입체 표면(Surface) 계산 중...</div></div>
             <div id="molecule-viewer"></div>
         </div>
     </div>
@@ -127,11 +127,11 @@
         let stageTime = 0;
 
         const descriptions = {
-            1: { title: "nAChR 수용체 실제 분자 충진 모델 [7KCO]", text: "추상적인 선을 지우고 실제 원자의 부피(Van der Waals 반경) 그대로를 구체로 매핑한 수용체 덩어리입니다. 적색 아세틸콜린 분자들이 실제 분자의 우둘투둘한 표면 틈새(포켓)로 유입되어 결합하는 물리적 양상을 보여줍니다." },
-            2: { title: "nCaV 칼슘 채널 원자 터널 애니메이션 [6JPA]", text: "거대한 원자 질량 덩어리 정중앙에 뚫려 있는 실제 물리적 통로(Pore)를 관찰하세요. 청색 칼슘 이온들이 이 원자 벽면 마찰을 통과하여 세포 안으로 쏟아져 들어옵니다." },
-            3: { title: "Poly-γ-Glu 음전하 분자 표면 팽창 [1A9M]", text: "음전하를 띤 실제 고분자 사슬 덩어리입니다. 사방에서 녹색 물 분자들이 이 원자 표면 사이사이의 미세한 빈틈으로 무섭게 흡착되며 삼투압성 압력을 형성합니다." },
-            4: { title: "Minicollagen 삼중나선 분자 응축 [1BKV]", text: "실제 콜라겐을 이루는 아미노산 원자들이 초고밀도로 꼬여 있는 모습입니다. 엄청난 내부 유체 압력을 버텨내기 위해 분자 전체가 웅크리듯 고주파로 격렬하게 진동하며 에너지를 축축합니다." },
-            5: { title: "Tubule Wall 자포관 분자 사출 [3HQV]", text: "원통형으로 엮인 실제 자포관 뼈대 분자 덩어리입니다. 압축 해제와 동시에 분자 덩어리 자체가 나선 회전을 일으키며 타깃을 향해 초고속으로 추진 전개됩니다." }
+            1: { title: "nAChR 수용체 실제 분자 표면 모델 [7KCO]", text: "원자 알갱이 대신 단백질의 실제 3D 겉모습 표면을 매끄러운 덩어리로 시각화했습니다. 적색 수용체 분자들이 매끄러운 단백질 표면 홈을 타고 결합하는 물리적 양상을 보여줍니다." },
+            2: { title: "nCaV 칼슘 채널 실제 분자 표면 [6JPA]", text: "입체 표면 덩어리 정중앙에 뚫린 진짜 분자 터널 구멍을 확인하세요. 청색 이온들이 표면으로 이루어진 실제 채널 내부 빈 공간을 관통해 흐릅니다." },
+            3: { title: "Poly-γ-Glu 음전하 분자 표면 팽창 [1A9M]", text: "매끄러운 고분자 사슬 표면입니다. 사방에서 녹색 물 분자들이 이 입체 덩어리 표면 사이사이로 흡착되며 삼투압성 압력을 형성합니다." },
+            4: { title: "Minicollagen 삼중나선 분자 표면 응축 [1BKV]", text: "실제 콜라겐 겉모습이 초고밀도로 엮인 입체 표면입니다. 엄청난 내부 유체 압력을 버터내기 위해 분자 표면 전체가 격렬하게 진동하며 에너지를 축적합니다." },
+            5: { title: "Tubule Wall 자포관 분자 표면 사출 [3HQV]", text: "원통형으로 엮인 실제 자포관 표면 덩어리입니다. 압축 해제와 동시에 부드러운 분자 표면 구조물 자체가 나선 회전을 일으키며 초고속으로 전개됩니다." }
         };
 
         $(document).ready(function() {
@@ -153,21 +153,18 @@
 
             viewer.clear();
             
-            // 실제 RCSB PDB 원자 좌표 다운로드
             $3Dmol.download("pdb:" + pdbId, viewer, {}, function(model) {
                 
-                // 🌟 핵심 변경: cartoon(리본) 대신 sphere(원자 실제 부피 충진 모델) 적용!
-                viewer.setStyle({}, { 
-                    sphere: { 
-                        colorscheme: 'element', // 탄소=회색, 산소=적색, 질소=청색 등 화학 표준 원자 색상 매핑
-                        scale: 1.0             // 실제 Van der Waals 원자 반경 100% 반영
-                    } 
-                });
+                // 🌟 핵심 변경: 앙상한 선이나 따닥따닥 붙은 구체를 다 지우고, '매끄러운 실제 분자 표면' 생성!
+                viewer.addSurface($3Dmol.SurfaceType.MS, {
+                    opacity: 0.95,
+                    colorscheme: 'spectrum' // 분자 표면에 아름다운 스펙트럼 색상 입히기
+                }, {}, {});
                 
                 viewer.zoomTo();
                 initParticles(stageNum);
                 
-                $('#loading-overlay').fadeOut(200);
+                $('#loading-overlay').fadeOut(300);
                 runAnimation();
             });
         }
@@ -179,7 +176,6 @@
                     particles.push({ x: (Math.random()-0.5)*90, y: 70 + Math.random()*30, z: (Math.random()-0.5)*90, targetY: (Math.random()-0.5)*15, color: '#ef4444', size: 2.2, speed: 0.9 + Math.random() });
                 }
             } else if (stageNum === 2) {
-                // 채널 덩어리 중앙 구멍 크기에 맞게 이온 배치 미세 조정
                 for(let i=0; i<40; i++) {
                     particles.push({ x: (Math.random()-0.5)*8, y: 60 + Math.random()*40, z: (Math.random()-0.5)*8, color: '#38bdf8', size: 1.5, speed: 1.8 + Math.random() });
                 }
