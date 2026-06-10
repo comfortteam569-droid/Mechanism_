@@ -2,66 +2,237 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>자포 사출 메커니즘 애니메이션</title>
+    <title>말미잘 자포 사출 5단계 메커니즘 2D 고증 시뮬레이터</title>
     <style>
-        body { background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Pretendard', sans-serif; }
-        
-        #canvas { width: 700px; height: 450px; position: relative; border: 1px solid #ddd; background: #f9f9f9; }
-        
-        /* 실제 분자 2D 그림 스타일 */
-        .mol-asset { 
-            width: 100%; height: 100%; position: absolute; top: 0; left: 0; 
-            opacity: 0; transition: opacity 0.8s ease, transform 0.5s ease;
-            object-fit: contain; pointer-events: none;
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: rgba(20, 30, 50, 0.85);
+            --accent-blue: #00d2ff;
+            --accent-red: #ff3838;
         }
-        
-        .active { opacity: 1; }
-        
-        /* 메커니즘 작동 시각화 효과 */
-        .effect-swelling { transform: scale(1.15); } /* 3단계 팽윤 */
-        .effect-vibration { animation: vibrate 0.1s linear infinite; } /* 4단계 응축 진동 */
-        @keyframes vibrate { 0% { transform: translate(2px, 0); } 100% { transform: translate(-2px, 0); } }
-        
-        #controller { margin-top: 30px; }
-        button { padding: 12px 25px; cursor: pointer; background: #222; color: #fff; border-radius: 5px; font-weight: bold; }
+
+        body {
+            background-color: var(--bg-color);
+            color: #ffffff;
+            font-family: 'Pretendard', -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 {
+            font-size: 22px;
+            margin-bottom: 5px;
+            background: linear-gradient(to right, var(--accent-blue), #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: #8a99ad;
+            margin-bottom: 25px;
+        }
+
+        /* 메인 시각화 화면 */
+        #display-canvas {
+            width: 750px;
+            height: 480px;
+            background: #000207;
+            border: 2px solid #1e293b;
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+
+        /* 🌟 실제 인터넷에 알려진 분자의 고증 2D 그림 Asset 스타일 */
+        .molecule-asset {
+            position: absolute;
+            width: 85%;
+            height: 85%;
+            top: 7.5%;
+            left: 7.5%;
+            object-fit: contain;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.8s ease-in-out, transform 0.8s ease-in-out;
+            filter: drop-shadow(0 0 15px rgba(0, 210, 255, 0.2));
+        }
+
+        /* 활성화된 단계의 실제 분자 그림 */
+        .molecule-asset.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* 단계별 보고서 메커니즘 맞춤 CSS 애니메이션 */
+        .active.mechanism-swelling {
+            animation: swellEffect 3s ease-in-out infinite alternate;
+        }
+
+        .active.mechanism-vibration {
+            animation: vibrateEffect 0.1s linear infinite;
+        }
+
+        .active.mechanism-discharge {
+            animation: dischargeEffect 2s cubic-bezier(0.19, 1, 0.22, 1) infinite;
+        }
+
+        @keyframes swellEffect {
+            0% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(0, 210, 255, 0.3)); }
+            100% { transform: scale(1.18); filter: drop-shadow(0 0 30px rgba(0, 210, 255, 0.6)); }
+        }
+
+        @keyframes vibrateEffect {
+            0% { transform: translate(1px, 1px) scale(1); }
+            50% { transform: translate(-1px, -1px) scale(0.99); }
+            100% { transform: translate(1px, -1px) scale(1); }
+        }
+
+        @keyframes dischargeEffect {
+            0% { transform: translateY(100px) scale(0.7); opacity: 0; }
+            30% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-300px) scale(1); opacity: 0; }
+        }
+
+        /* 제어 패널 */
+        #control-panel {
+            margin-top: 25px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            padding: 12px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-btn.current {
+            background: var(--accent-blue);
+            color: #000000;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
+        }
+
+        #status-dashboard {
+            width: 750px;
+            margin-top: 20px;
+            padding: 15px;
+            background: var(--panel-bg);
+            border-radius: 10px;
+            border-left: 4px solid var(--accent-blue);
+            box-sizing: border-box;
+        }
+
+        #dashboard-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--accent-blue);
+            margin-bottom: 5px;
+        }
+
+        #dashboard-desc {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #cbd5e1;
+        }
     </style>
 </head>
 <body>
 
-    <div id="canvas">
-        <img src="step1_nAChR.png" class="mol-img mol-asset" id="step1">
-        <img src="step2_nCaV.png" class="mol-img mol-asset" id="step2">
-        <img src="step3_PolyGlu.png" class="mol-img mol-asset" id="step3">
-        <img src="step4_Minicollagen.png" class="mol-img mol-asset" id="step4">
-        <img src="step5_Tubule.png" class="mol-img mol-asset" id="step5">
+    <h1>Nematostella vectensis 자포 사출 분자 시뮬레이터</h1>
+    <div class="subtitle">구글 스프레드시트 기재 메커니즘 동기화 가속 스크립트</div>
+
+    <div id="display-canvas">
+        <img src="https://cdn.rcsb.org/images/structures/7k/7kco/7kco_assembly-1.jpeg" class="molecule-asset" id="mol-step1">
+        
+        <img src="https://cdn.rcsb.org/images/structures/6j/6jpa/6jpa_assembly-1.jpeg" class="molecule-asset" id="mol-step2">
+        
+        <img src="https://cdn.rcsb.org/images/structures/1a/1a9m/1a9m_assembly-1.jpeg" class="molecule-asset" id="mol-step3">
+        
+        <img src="https://cdn.rcsb.org/images/structures/1b/1bkv/1bkv_assembly-1.jpeg" class="molecule-asset" id="mol-step4">
+        
+        <img src="https://cdn.rcsb.org/images/structures/3h/3hqv/3hqv_assembly-1.jpeg" class="molecule-asset" id="mol-step5">
     </div>
 
-    <div id="controller">
-        <button onclick="runMechanism()">보고서 메커니즘 애니메이션 시작</button>
+    <div id="control-panel">
+        <button class="control-btn" id="btn-step1" onclick="triggerStep(1)">1. 화학 자극 (nAChR)</button>
+        <button class="control-btn" id="btn-step2" onclick="triggerStep(2)">2. 칼슘 채널 개방 (nCaV)</button>
+        <button class="control-btn" id="btn-step3" onclick="triggerStep(3)">3. 삼투압 팽윤 (Poly-γ-Glu)</button>
+        <button class="control-btn" id="btn-step4" onclick="triggerStep(4)">4. 탄성 축적 (Minicollagen)</button>
+        <button class="control-btn" id="btn-step5" onclick="triggerStep(5)">5. 초고속 사출 (Tubule)</button>
+    </div>
+
+    <div id="status-dashboard">
+        <div id="dashboard-title">시뮬레이터 대기 상태</div>
+        <div id="dashboard-desc">상단의 버튼을 선택하면 해당 단계에 기재된 실제 분자의 고증 그림과 함께 보고서 메커니즘 애니메이션이 동기화되어 구동됩니다.</div>
     </div>
 
     <script>
-        async function runMechanism() {
-            const steps = [
-                { id: 'step1', effect: '' },
-                { id: 'step2', effect: '' },
-                { id: 'step3', effect: 'effect-swelling' }, // 3단계: 팽윤
-                { id: 'step4', effect: 'effect-vibration' }, // 4단계: 응축 진동
-                { id: 'step5', effect: '' }
-            ];
-
-            for (let s of steps) {
-                // 이전 이미지 초기화
-                document.querySelectorAll('.mol-asset').forEach(img => img.classList.remove('active', 'effect-swelling', 'effect-vibration'));
-                
-                // 현재 단계 활성화 및 효과 적용
-                const current = document.getElementById(s.id);
-                current.classList.add('active');
-                if(s.effect) current.classList.add(s.effect);
-                
-                // 각 단계별 메커니즘 설명 시간 (2.5초)
-                await new Promise(r => setTimeout(r, 2500));
+        const mechanismMeta = {
+            1: {
+                title: "STEP 1 : 화학적 프라이밍 및 시그널 튜닝 (nAChR 수용체)",
+                desc: "스프레드시트 기재 데이터: PDB [7KCO]. ACh 분자가 실제 nAChR 오량체(Pentamer) 구조 표면에 결합하면서 세포막의 전기적 흥분 역치를 제어하고 사출 시스템을 최적의 기폭 상태로 Priming합니다.",
+                effectClass: ""
+            },
+            2: {
+                title: "STEP 2 : 기계적 자극 연동 및 칼슘 이온 폭포수 유입 (nCaV 채널)",
+                desc: "스프레드시트 기재 데이터: PDB [6JPA]. cnidocil의 물리적 편위에 의해 전압 개폐성 nCaV 채널의 실제 중심 포어(Pore) 터널이 전면 개방되며, 자포 내부로 엄청난 양의 Ca2+ 이온 유입 궤적이 발생합니다.",
+                effectClass: ""
+            },
+            3: {
+                title: "STEP 3 : 기질 내 음전하 중화 및 삼투압성 팽윤 (Poly-γ-glutamate)",
+                desc: "스프레드시트 기재 데이터: PDB [1A9M]. 유입된 대량의 Ca2+ 이온이 Poly-γ-glutamate 고분자 사슬의 음전하를 중화시킵니다. 이로 인해 자유 이온 농도가 급증하고 주변의 H2O 분자들이 자포 내부 빈틈으로 무섭게 압입되면서 볼륨이 급격히 팽창(Swelling)합니다.",
+                effectClass: "mechanism-swelling"
+            },
+            4: {
+                title: "STEP 4 : 150 bar 초고압 지탱 및 탄성 strain 축적 (Minicollagen 그물망)",
+                desc: "스프레드시트 기재 데이터: PDB [1BKV]. 삼투압 압력이 150 bar(심해 수준)까지 치솟을 때, 삼중나선 구조의 Minicollagen 고밀도 가교 그물망 벽면이 이 파괴적인 힘을 견뎌내며 분자 전체에 탄성 변형 에너지를 한계까지 압축·저장합니다.",
+                effectClass: "mechanism-vibration"
+            },
+            5: {
+                title: "STEP 5 : Operculum 개방 및 자포관 초고속 사출 역학 (Tubule Wall 복합체)",
+                desc: "스프레드시트 기재 데이터: PDB [3HQV]. 임계 압력 도달과 동시에 상부 덮개가 터지며 내부에 반전되어 꼬여있던 자포관 구조물 자체가 탄성 복원력에 의해 나선 회전을 일으키며 타깃을 향해 5,400,000g의 초고속 가속도로 추진 전개됩니다.",
+                effectClass: "mechanism-discharge"
             }
+        };
+
+        function triggerStep(stepNum) {
+            // 1. 모든 요소 활성화 초기화
+            document.querySelectorAll('.molecule-asset').forEach(asset => {
+                asset.className = 'molecule-asset';
+            });
+            document.querySelectorAll('.control-btn').forEach(btn => {
+                btn.classList.remove('current');
+            });
+
+            // 2. 현재 선택된 단계 데이터 매핑
+            const currentAsset = document.getElementById(`mol-step${stepNum}`);
+            const currentBtn = document.getElementById(`btn-step${stepNum}`);
+            const metadata = mechanismMeta[stepNum];
+
+            // 3. 고증 일치 비주얼 및 메커니즘 애니메이션 주입
+            currentAsset.classList.add('active');
+            if (metadata.effectClass) {
+                currentAsset.classList.add(metadata.effectClass);
+            }
+            currentBtn.classList.add('current');
+
+            // 4. 대시보드 텍스트 업데이트
+            document.getElementById('dashboard-title').innerText = metadata.title;
+            document.getElementById('dashboard-desc').innerText = metadata.desc;
         }
     </script>
 </body>
