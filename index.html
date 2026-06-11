@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>말미잘 자포 사출 분자 고증 애니메이션 시뮬레이터</title>
+    <title>말미잘 자포 사출 분자 역학 2D 일러스트 시뮬레이터</title>
     <style>
         :root {
-            --bg-color: #090d16;
-            --panel-bg: rgba(15, 23, 42, 0.9);
-            --accent-blue: #00d2ff;
-            --text-muted: #64748b;
+            --bg-color: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.95);
+            --accent-blue: #38bdf8;
         }
         body {
             background-color: var(--bg-color);
@@ -24,230 +23,266 @@
             overflow: hidden;
         }
         h1 {
-            font-size: 20px;
+            font-size: 18px;
             margin: 0 0 5px 0;
-            background: linear-gradient(to right, var(--accent-blue), #a855f7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--accent-blue);
         }
-        .subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 20px; }
+        .subtitle { font-size: 12px; color: #94a3b8; margin-bottom: 15px; }
         
-        /* 시뮬레이션 메인 스테이지 */
-        #stage-wrapper {
+        /* 메인 시뮬레이션 스크린 (논문 모식도 스타일의 깔끔한 밝은 배경) */
+        #canvas-container {
             position: relative;
-            width: 800px;
-            height: 460px;
-            border: 2px solid #1e293b;
+            width: 780px;
+            height: 440px;
+            border: 2px solid #334155;
             border-radius: 12px;
-            background: #020617;
-            overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            background: #f8fafc; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
         }
-        
-        /* 🌟 실제 알려진 분자 구조의 2D 고증 그림 Asset 설정 */
-        .real-molecule-asset {
-            position: absolute;
-            object-fit: contain;
-            display: none; /* JS 제어를 위해 기본 숨김 */
-            filter: drop-shadow(0 0 15px rgba(0, 210, 255, 0.3));
-        }
+        canvas { display: block; width: 100%; height: 100%; }
 
-        /* 캔버스 입자 레이어 */
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-
-        /* 제어 패널 및 대시보드 */
-        #control-panel { margin-top: 15px; display: flex; gap: 8px; }
+        /* 컨트롤 버튼 패널 */
+        #control-panel { margin-top: 15px; display: flex; gap: 6px; }
         .control-btn {
             background: #1e293b; border: 1px solid #334155; color: #94a3b8;
-            padding: 10px 14px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: all 0.2s;
+            padding: 10px 12px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: all 0.2s;
         }
         .control-btn.current {
-            background: var(--accent-blue); color: #000000; border-color: var(--accent-blue);
-            box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
+            background: #0284c7; color: #ffffff; border-color: #0284c7;
+            box-shadow: 0 0 10px rgba(2, 132, 199, 0.5);
         }
+
+        /* 설명 대시보드 */
         #status-dashboard {
-            width: 800px; margin-top: 15px; padding: 15px;
+            width: 780px; margin-top: 15px; padding: 12px;
             background: var(--panel-bg); border-radius: 8px; border-left: 4px solid var(--accent-blue); box-sizing: border-box;
         }
-        #dashboard-title { font-size: 14px; font-weight: bold; color: var(--accent-blue); margin-bottom: 4px; }
-        #dashboard-desc { font-size: 12px; line-height: 1.5; color: #cbd5e1; }
+        #dashboard-title { font-size: 13px; font-weight: bold; color: var(--accent-blue); margin-bottom: 4px; }
+        #dashboard-desc { font-size: 11px; line-height: 1.5; color: #cbd5e1; }
     </style>
 </head>
 <body>
 
-    <h1>Nematostella vectensis 자포 사출 분자 고증 시뮬레이터</h1>
-    <div class="subtitle">실제 PDB 2D 이미지 자산 기반 메커니즘 동기화 애니메이션 엔진</div>
+    <h1>Nematostella vectensis 자포 사출 분자 역학 애니메이션 시뮬레이터</h1>
+    <div class="subtitle">학생 작성 메커니즘 데이터 기반 - 2D 바이오 모식도 일러스트 엔진</div>
 
-    <div id="stage-wrapper">
-        <img src="https://www.ebi.ac.uk/pdbe/static/entry/7kco_images/7kco_600.png" class="real-molecule-asset" id="asset-nAChR">
-        <img src="https://www.ebi.ac.uk/pdbe/static/entry/6jpa_images/6jpa_600.png" class="real-molecule-asset" id="asset-nCaV">
-        <img src="https://www.ebi.ac.uk/pdbe/static/entry/1a9m_images/1a9m_600.png" class="real-molecule-asset" id="asset-polyGlu">
-        <img src="https://www.ebi.ac.uk/pdbe/static/entry/1bkv_images/1bkv_600.png" class="real-molecule-asset" id="asset-minicollagen">
-        <img src="https://www.ebi.ac.uk/pdbe/static/entry/3hqv_images/3hqv_600.png" class="real-molecule-asset" id="asset-tubule">
-        
-        <canvas id="particleCanvas" width="800" height="460"></canvas>
+    <div id="canvas-container">
+        <canvas id="biophysicsCanvas" width="780" height="440"></canvas>
     </div>
 
     <div id="control-panel">
-        <button class="control-btn" id="btn1" onclick="switchStep(1)">1. 화학 자극 (nAChR)</button>
-        <button class="control-btn" id="btn2" onclick="switchStep(2)">2. 이온 유입 (nCaV)</button>
-        <button class="control-btn" id="btn3" onclick="switchStep(3)">3. 삼투 팽윤 (Poly-&gamma;-Glu)</button>
-        <button class="control-btn" id="btn4" onclick="switchStep(4)">4. 탄성 응축 (Minicollagen)</button>
-        <button class="control-btn" id="btn5" onclick="switchStep(5)">5. 초고속 사출 (Tubule)</button>
+        <button class="control-btn" id="btn1" onclick="changeStep(1)">1. 화학 자극 (nAChR)</button>
+        <button class="control-btn" id="btn2" onclick="changeStep(2)">2. 이온 유입 (nCaV)</button>
+        <button class="control-btn" id="btn3" onclick="changeStep(3)">3. 삼투 팽윤 (Poly-&gamma;-Glu)</button>
+        <button class="control-btn" id="btn4" onclick="changeStep(4)">4. 탄성 응축 (Minicollagen)</button>
+        <button class="control-btn" id="btn5" onclick="changeStep(5)">5. 초고속 사출 (Tubule 복합체)</button>
     </div>
 
     <div id="status-dashboard">
-        <div id="dashboard-title">시뮬레이터 초기화 중</div>
-        <div id="dashboard-desc">실제 고증 분자 이미지 트랙을 동기화하고 있습니다...</div>
+        <div id="dashboard-title">대기 중</div>
+        <div id="dashboard-desc">상단 버튼을 누르면 해당 메커니즘의 분자 고증 일러스트 애니메이션이 재생됩니다.</div>
     </div>
 
     <script>
-        const canvas = document.getElementById('particleCanvas');
+        const canvas = document.getElementById('biophysicsCanvas');
         const ctx = canvas.getContext('2d');
 
-        // 실제 분자 이미지 DOM 객체 수집
-        const imgs = {
-            nAChR: document.getElementById('asset-nAChR'),
-            nCaV: document.getElementById('asset-nCaV'),
-            polyGlu: document.getElementById('asset-polyGlu'),
-            minicollagen: document.getElementById('asset-minicollagen'),
-            tubule: document.getElementById('asset-tubule')
-        };
-
         let currentStep = 1;
-        let timeline = 0;
-        let particles = [];
+        let progressTime = 0;
+        let movingParticles = [];
 
-        const metaData = {
-            1: { title: "STEP 1 : 화학적 프라이밍 및 리간드 도킹 (nAChR 오량체 구조 그림)", desc: "데이터출처: PDB [7KCO]. 인터넷에 규명된 실제 nAChR 오량체(Pentamer) 형태의 고증 그림입니다. 아세틸콜린 리간드 유동 입자들이 실제 분자 표면 포켓에 결합하며 사출 시스템의 전기적 흥분 장벽을 튜닝합니다." },
-            2: { title: "STEP 2 : 물리 자극 연동형 칼슘 채널 전면 개방 (nCaV 이온채널 구조 그림)", desc: "데이터출처: PDB [6JPA]. 실제 nCaV 전압 개폐성 채널 구조 그림의 중심 기공(Pore)이 열리면서, 외부의 전하를 띤 Ca2+ 이온 입자들이 터널을 통과해 자포 내부 공간으로 자연스럽고 정밀하게 쏟아져 내립니다." },
-            3: { title: "STEP 3 : 기질 내 자유수 유입 및 물리적 삼투 팽윤 (Poly-&gamma;-glutamate 사슬 구조 그림)", desc: "데이터출처: PDB [1A9M]. 폴리글루타메이트 고분자 사슬 구조 그림이 유입된 칼슘과 결합해 전하를 잃으면서, 수많은 H2O 물 입자들이 막 내부로 강하게 흡착되어 들어와 실제 분자 형태 자체가 부드럽고 웅장하게 확대 팽창(Swelling)합니다." },
-            4: { title: "STEP 4 : 150 bar 초고압 캡슐 인클로저 지탱 (Minicollagen 삼중나선 그물망 그림)", desc: "데이터출처: PDB [1BKV]. 실제 콜라겐 삼중나선 가교 결합체 고증 그림이 자포 내부의 가공할 삼투 압력을 지탱하는 단계입니다. 구조 그림 자체가 고주파로 잘게 전율하고 진동하며 탄성 strain 에너지를 한계치까지 압축 저장합니다." },
-            5: { title: "STEP 5 : Operculum 탈착 및 자포관 초고속 반전 추진 (Tubule Wall 복합체 그림)", desc: "데이터출처: PDB [3HQV]. 뚜껑이 열리는 순간, 내부에 압축되어 있던 자포관 복합체 고증 그림이 탄성 복원력에 의해 나선형 스핀을 그리며 화면 상단을 향해 엄청난 가속도로 부드럽고 강력하게 사출 전개됩니다." }
+        const metaText = {
+            1: { title: "STEP 1 : nAChR 오량체 구조 표면의 리간드 도킹 애니메이션", desc: "ACh 화학 자극 입자들이 상단 상피세포막에 위치한 고증된 nAChR 오량체(Pentamer) 단백질 수용체의 고유 결합 포켓을 향해 직접 유동하며 결합(Docking)하는 활성화 과정입니다." },
+            2: { title: "STEP 2 : nCaV 채널 중심 기공 개방 및 Calcium Influx 애니메이션", desc: "물리적 자극이 트리거되어 nCaV 채널의 대칭형 서브유닛 구조 중심부에 위치한 이온 기공(Pore) 터널이 스르륵 열리며, 외부에 있던 Ca2+ 이온들이 통로 내부로 빠르게 하강 유입됩니다." },
+            3: { title: "STEP 3 : Poly-&gamma;-glutamate 사슬 중화에 따른 삼투압성 팽윤 애니메이션", desc: "유입된 이온이 Poly-&gamma;-glutamate 고분자 사슬의 음전하를 중화시킴과 동시에 외부의 H2O 물 분자들이 사방에서 중심부로 급격히 압입되면서, 분자 매트릭스 외형 자체가 실제로 크게 부풀어 오릅니다." },
+            4: { title: "STEP 4 : 150 bar 초고압을 지탱하는 Minicollagen 가교 그물망 진동 애니메이션", desc: "삼중나선(Triple-Helix) 형태로 촘촘하게 얽힌 미니콜라겐 그물망 외벽이 내부의 가공할 삼투 압력을 팽팽하게 지탱해 내는 메커니즘입니다. 구조망 자체가 고주파로 잘게 떨리며 탄성 변형 에너지를 압축합니다." },
+            5: { title: "STEP 5 : Operculum 개방 및 자포관(Tubule Wall) 초고속 반전 사출 애니메이션", desc: "임계 압력 도달 시 상부 캡이 열리고, 내부에 거꾸로 꼬여있던 붉은색 자포관(Tubule) 구조체와 선단의 날카로운 가시(Barbs) 화살촉 복합체가 회전 나선 스핀 물리 운동을 일으키며 수직 상단으로 폭발적으로 사출됩니다." }
         };
 
-        function switchStep(step) {
+        function changeStep(step) {
             currentStep = step;
-            timeline = 0;
-            
-            // 모든 이미지 숨기기 및 스타일 초기화
-            Object.values(imgs).forEach(img => { img.style.display = 'none'; img.style.transform = 'none'; });
-            document.querySelectorAll('.control-btn').forEach((btn, i) => btn.classList.toggle('current', i + 1 === step));
-            
-            document.getElementById('dashboard-title').innerText = metaData[step].title;
-            document.getElementById('dashboard-desc').innerText = metaData[step].desc;
+            progressTime = 0;
+            document.querySelectorAll('.control-btn').forEach((b, i) => b.classList.toggle('current', i + 1 === step));
+            document.getElementById('dashboard-title').innerText = metaText[step].title;
+            document.getElementById('dashboard-desc').innerText = metaText[step].desc;
 
-            // 입자 배열 초기화 및 단계별 세팅
-            particles = [];
+            movingParticles = [];
             if (step === 1) {
-                for(let i=0; i<15; i++) particles.push({ x: Math.random()*300 + 250, y: -20 - Math.random()*50, ty: 160 + Math.random()*30, s: Math.random()*2 + 1.5 });
+                // 아세틸콜린 리간드 입자 생성
+                for(let i=0; i<6; i++) movingParticles.push({ x: 310 + i*35, y: -10, ty: 180 + Math.sin(i)*10, speed: 1.5 + Math.random() });
             } else if (step === 2) {
-                for(let i=0; i<40; i++) particles.push({ x: 400 + (Math.random()-0.5)*30, y: 70 + Math.random()*20, s: Math.random()*3 + 2, phase: Math.random()*Math.PI });
+                // 칼슘 이온 입자 생성
+                for(let i=0; i<30; i++) movingParticles.push({ x: 390 + (Math.random()-0.5)*15, y: 50 + Math.random()*20, speed: 2.5 + Math.random()*1.5 });
             } else if (step === 3) {
-                for(let i=0; i<30; i++) {
-                    let angle = Math.random() * Math.PI * 2;
-                    particles.push({ x: 400 + Math.cos(angle)*280, y: 230 + Math.sin(angle)*180, ang: angle, s: Math.random()*2 + 1 });
+                // 물 유입 입자 생성
+                for(let i=0; i<35; i++) {
+                    let a = Math.random() * Math.PI * 2;
+                    movingParticles.push({ x: 400 + Math.cos(a)*250, y: 230 + Math.sin(a)*160, angle: a, speed: 1.8 + Math.random() });
                 }
             }
         }
 
-        function animate() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            timeline += 0.03;
+        // 🌟 [핵심 로직] 서희 학생의 메커니즘 구성 분자들을 2D 일러스트 스타일로 직접 드로잉하는 그래픽 엔진
+        function renderIllust(step, ticks) {
+            ctx.save();
 
-            if (currentStep === 1) {
-                // 1단계 애니메이션: nAChR 진짜 그림 배치 + 리간드 입자 이동 및 결합
-                const img = imgs.nAChR;
-                img.style.display = 'block';
-                img.style.width = '350px'; img.style.height = '350px';
-                img.style.left = '225px'; img.style.top = '70px';
+            const cx = 400;
+            const cy = 230;
+
+            if (step === 1) {
+                // 1단계: nAChR 오량체 단백질 실제 2D 형태 모식도 일러스트
+                ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 4;
+                ctx.fillStyle = '#e0f2fe';
                 
-                // 아세틸콜린 입자들이 실제 분자 그림 표면으로 부드럽게 하강 도킹
-                particles.forEach(p => {
-                    if (p.y < p.ty) p.y += p.s;
-                    ctx.fillStyle = '#a855f7'; ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 8;
-                    ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill();
+                // 5개의 대칭 구조를 가진 오량체 수용체 탑뷰(Top-view) 구조 드로잉
+                for (let i = 0; i < 5; i++) {
+                    let angle = (i * 2 * Math.PI) / 5;
+                    let sx = cx + Math.cos(angle) * 50;
+                    let sy = cy + Math.sin(angle) * 50;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, 32, 0, Math.PI * 2);
+                    ctx.fill(); ctx.stroke();
+                    
+                    // 결합 포켓 리셉터 라인 디테일
+                    ctx.beginPath(); ctx.arc(sx, sy, 12, 0, Math.PI); ctx.stroke();
+                }
+
+                // 리간드 입자들이 고유 포켓으로 유기적으로 이동 및 결합하는 애니메이션
+                movingParticles.forEach(p => {
+                    if (p.y < p.ty) p.y += p.speed;
+                    ctx.fillStyle = '#8b5cf6'; ctx.strokeStyle = '#4c1d95'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI*2); ctx.fill(); ctx.stroke();
                 });
-            } 
-            else if (currentStep === 2) {
-                // 2단계 애니메이션: nCaV 진짜 그림 배치 + 이온들이 채널 포어를 관통하여 쏟아짐
-                const img = imgs.nCaV;
-                img.style.display = 'block';
-                img.style.width = '400px'; img.style.height = '300px';
-                img.style.left = '200px'; img.style.top = '40px';
+            }
+            else if (step === 2) {
+                // 2단계: nCaV 전압 개폐성 채널 종단면 일러스트 구조
+                let gateGap = Math.min(25, ticks * 10); // 기공 통로가 대칭으로 열리는 움직임 벡터
+                ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 5;
+                ctx.fillStyle = '#eff6ff';
 
-                // 칼슘 이온들이 고증 그림 정중앙 터널 영역을 통과해 아래로 뿜어져 나감
-                particles.forEach(p => {
-                    p.y += p.s;
-                    if (p.y > canvas.height) { p.y = 70; p.x = 400 + (Math.random()-0.5)*30; }
-                    ctx.fillStyle = '#00ffcc'; ctx.shadowColor = '#00ffcc'; ctx.shadowBlur = 6;
-                    ctx.beginPath(); ctx.arc(p.x + Math.sin(p.y*0.04 + p.phase)*12, p.y, 5, 0, Math.PI*2); ctx.fill();
+                // 좌측 채널 서브유닛 구조막
+                ctx.beginPath();
+                ctx.moveTo(cx - 70 - gateGap, cy - 110); ctx.bezierCurveTo(cx - 140 - gateGap, cy - 60, cx - 120 - gateGap, cy + 60, cx - 70 - gateGap, cy + 110);
+                ctx.lineTo(cx - 20 - gateGap, cy + 90); ctx.bezierCurveTo(cx - 50 - gateGap, cy + 50, cx - 50 - gateGap, cy - 50, cx - 20 - gateGap, cy - 90);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+
+                // 우측 채널 서브유닛 구조막
+                ctx.beginPath();
+                ctx.moveTo(cx + 70 + gateGap, cy - 110); ctx.bezierCurveTo(cx + 140 + gateGap, cy - 60, cx + 120 + gateGap, cy + 60, cx + 70 + gateGap, cy + 110);
+                ctx.lineTo(cx + 20 + gateGap, cy + 90); ctx.bezierCurveTo(cx + 50 + gateGap, cy + 50, cx + 50 + gateGap, cy - 50, cx + 20 + gateGap, cy - 90);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+
+                // 개방된 기공 통로 내부를 통과해 쏟아지는 Ca2+ 이온 흐름 애니메이션
+                movingParticles.forEach(p => {
+                    p.y += p.speed;
+                    if (p.y > cy + 130) { p.y = cy - 120; p.x = cx + (Math.random()-0.5)*15; }
+                    ctx.fillStyle = '#06b6d4'; ctx.strokeStyle = '#0891b2'; ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.arc(p.x + Math.sin(p.y * 0.05) * 10, p.y, 6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
                 });
-            } 
-            else if (currentStep === 3) {
-                // 3단계 애니메이션: Poly-Glu 진짜 그림 배치 + 수축 제어 및 물리적 팽윤(Swell) 효과
-                const img = imgs.polyGlu;
-                img.style.display = 'block';
-                img.style.width = '420px'; img.style.height = '420px';
-                img.style.left = '190px'; img.style.top = '20px';
+            }
+            else if (step === 3) {
+                // 3단계: Poly-gamma-glutamate 선형 사슬 구조의 팽창(Swelling) 일러스트
+                let swell = Math.min(1.35, 0.85 + ticks * 0.1) + Math.sin(ticks * 2) * 0.02; // 삼투 팽창도 연산
+                ctx.translate(cx, cy);
+                ctx.scale(swell, swell);
 
-                // 메커니즘 연동: 시간이 흐름에 따라 분자 고증 그림 자체가 와르르 커지며 진동
-                let swellScale = Math.min(1.25, 0.85 + timeline * 0.1) + Math.sin(timeline * 2) * 0.03;
-                img.style.transform = `scale(${swellScale})`;
+                ctx.strokeStyle = '#db2777'; ctx.lineWidth = 4;
+                // 이온 중화로 인해 구불구불하게 변형 연동되는 분자 사슬 매트릭스 그리기
+                for (let i = -2; i <= 2; i++) {
+                    ctx.beginPath();
+                    let offset = Math.sin(ticks + i) * 15;
+                    ctx.moveTo(-150, i * 35 + offset);
+                    ctx.bezierCurveTo(-50, -40 + i * 20 + offset, 50, 40 + i * 20 - offset, 150, i * 35 - offset);
+                    ctx.stroke();
+                }
 
-                // 주위의 H2O 물 입자들이 실제 분자 구조 안쪽으로 강하게 흡착되어 빨려 들어가는 궤적
-                particles.forEach(p => {
-                    let dist = Math.max(0, 1 - timeline*0.15);
-                    let currentX = 400 + Math.cos(p.ang) * 280 * dist;
-                    let currentY = 230 + Math.sin(p.ang) * 180 * dist;
-                    ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(currentX, currentY, 4, 0, Math.PI*2); ctx.fill();
+                // 외부 수분(H2O) 분자들이 내부 구조로 무섭게 흡착 유입되는 역학 모션
+                ctx.restore(); ctx.save(); // 스케일 독립성 유지
+                movingParticles.forEach(p => {
+                    let r = Math.max(0.02, 1 - ticks * 0.14);
+                    let px = cx + Math.cos(p.angle) * 250 * r;
+                    let py = cy + Math.sin(p.angle) * 160 * r;
+                    ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill();
                 });
-            } 
-            else if (currentStep === 4) {
-                // 4단계 애니메이션: Minicollagen 그물망 진짜 그림 배치 + 150바의 압력을 견디는 고주파 미세 전율
-                const img = imgs.minicollagen;
-                img.style.display = 'block';
-                img.style.width = '450px'; img.style.height = '450px';
-                img.style.left = '175px'; img.style.top = '5px';
+            }
+            else if (step === 4) {
+                // 4단계: Minicollagen 삼중나선 가교 그물망의 150바 초고압 인클로저 일러스트
+                // 압축 한계 변형력을 보여주기 위한 촘촘한 고주파 진동(Vibration) 변위 연산
+                let sx = (Math.random() - 0.5) * 6;
+                let sy = (Math.random() - 0.5) * 6;
+                ctx.translate(cx + sx, cy + sy);
 
-                // 미니콜라겐 그물망 진짜 그림 자체가 격렬하게 부르르 떨리는 고주파 Strain 물리 연산
-                let shakeX = (Math.random() - 0.5) * 6;
-                let shakeY = (Math.random() - 0.5) * 6;
-                img.style.transform = `translate(${shakeX}px, ${shakeY}px) scale(1.05)`;
+                ctx.strokeStyle = '#ca8a04'; ctx.lineWidth = 3.5;
+                ctx.fillStyle = 'rgba(254, 240, 138, 0.2)';
                 
-                // 내부 압축 에너지를 보여주는 아우라 효과
-                ctx.fillStyle = 'rgba(234, 179, 8, 0.04)';
-                ctx.beginPath(); ctx.arc(400, 230, 180 + Math.sin(timeline*10)*10, 0, Math.PI*2); ctx.fill();
-            } 
-            else if (currentStep === 5) {
-                // 5단계 애니메이션: Tubule 진짜 그림 배치 + 초고속 반전 추진 사출 애니메이션
-                const img = imgs.tubule;
-                img.style.display = 'block';
-                img.style.width = '350px'; img.style.height = '450px';
-                img.style.left = '225px';
+                // 삼중나선 분자들이 서로 질기게 연결되어 벽면 보호 그물망을 이룬 형태 구조 드로잉
+                ctx.beginPath();
+                for (let a = 0; a <= Math.PI * 2; a += 0.04) {
+                    let helixCoil = Math.sin(a * 24 + ticks * 15) * 6; // 삼중나선 코일 구조 고증 수식
+                    let radius = 140 + helixCoil;
+                    let x = Math.cos(a) * radius;
+                    let y = Math.sin(a) * radius;
+                    if (a === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.closePath(); ctx.fill(); ctx.stroke();
 
-                // 5,400,000g의 사출 속도 역학: 아래에서 위로 회전 스핀을 돌며 폭발적으로 솟구쳐 날아가는 실제 애니메이션
-                let launchY = 150 - (timeline * 160);
-                let spinAngle = timeline * 250;
-                
-                // 화면 밖으로 완전히 사라지면 다시 아래에서 리셋되어 무한 사출 루프
-                if (launchY < -500) { timeline = 0; }
-                img.style.transform = `translateY(${launchY}px) rotate(${spinAngle}deg) scale(0.9)`;
+                // 가교 연결점 조인트 노드 디테일
+                ctx.fillStyle = '#eab308';
+                for (let a = 0; a < Math.PI * 2; a += 0.4) {
+                    ctx.beginPath(); ctx.arc(Math.cos(a)*140, Math.sin(a)*140, 4, 0, Math.PI*2); ctx.fill();
+                }
+            }
+            else if (step === 5) {
+                // 5단계: 자포관(Tubule Wall) 및 선단 가시(Barbs) 복합체 초고속 수직 사출 일러스트
+                let launchY = - (ticks * 160);
+                if (launchY < -550) animFrame = 0; // 무한 추진 사출 루프 세팅
+
+                ctx.translate(cx, cy + launchY);
+
+                // 1. 나선형 스핀을 그리며 부드럽게 대칭 전개되는 자포 추진관 본체 드로잉
+                ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 5;
+                ctx.fillStyle = '#16a34a'; // 내부 관 코어 구조
+                ctx.beginPath();
+                ctx.moveTo(-12, 200); ctx.lineTo(-8, -120); ctx.lineTo(8, -120); ctx.lineTo(12, 200);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+
+                // 사출관 내부의 나선형 트랙 주름선 고증 디테일
+                ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2;
+                ctx.beginPath();
+                for(let ty = 180; ty > -110; ty -= 15) {
+                    ctx.moveTo(-8, ty); ctx.lineTo(8, ty - 8);
+                }
+                ctx.stroke();
+
+                // 2. 사출관 선단의 날카로운 삼차 대칭형 가시(Barbs) 화살촉 복합체 정밀 드로잉
+                ctx.fillStyle = '#dc2626'; ctx.strokeStyle = '#991b1b'; ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, -130);
+                ctx.lineTo(-28, -85); ctx.lineTo(-12, -90); ctx.lineTo(0, -50);
+                ctx.lineTo(12, -90); ctx.lineTo(28, -85);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
             }
 
-            requestAnimationFrame(animate);
+            ctx.restore();
+        }
+
+        function runAnimationEngine() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            progressTime += 0.035;
+
+            // 세포 기저막 경계선 드로잉
+            ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, 110); ctx.lineTo(canvas.width, 110); ctx.stroke();
+
+            // 2D 일러스트 렌더러 호출
+            renderIllust(currentStep, progressTime);
+
+            requestAnimationFrame(runAnimationEngine);
         }
 
         window.onload = function() {
-            switchStep(1);
-            animate();
+            changeStep(1);
+            runAnimationEngine();
         };
     </script>
 </body>
